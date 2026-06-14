@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Login button handler (demo)
     // Google Sign-In initialization
-    const GOOGLE_CLIENT_ID = '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.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = '512241404291-15nspqcil0gragpdp9mufgigd4jh4fp0.apps.googleusercontent.com';
 
     function handleCredentialResponse(response) {
         console.log('Encoded JWT ID token: ' + response.credential);
