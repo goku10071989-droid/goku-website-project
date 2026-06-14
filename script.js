@@ -84,6 +84,20 @@ document.addEventListener('DOMContentLoaded', function() {
         yearElement.style.opacity = '0.8';
         footer.insertBefore(yearElement, footer.querySelector('.social'));
     }
+
+    // Login button handler (demo)
+    const loginButton = document.getElementById('login-button');
+    if (loginButton) {
+        loginButton.addEventListener('click', function() {
+            // Demo behavior: simple prompt flow
+            const username = prompt('Enter username (demo):');
+            if (username) {
+                alert(`Hello, ${username}! (Demo login)`);
+            } else {
+                alert('Login cancelled');
+            }
+        });
+    }
     
     // Console greeting
     console.log('%c🐉 Kamehameha! Welcome to Goku\'s Website!', 
