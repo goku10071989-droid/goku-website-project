@@ -119,6 +119,23 @@ nav {
     color: #555;
 }
 
+/* Projects UI */
+.project-card {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.project-card h3 { margin: 0 0 0.5rem 0; }
+.project-actions { display:flex; gap:0.5rem; margin-top:0.75rem; }
+.project-detail pre { background:#f6f8fa; padding:1rem; border-radius:6px; overflow:auto; }
+
+.modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); }
+.modal-content { background:white; padding:1rem; border-radius:8px; width:90%; max-width:600px; display:flex; flex-direction:column; gap:0.5rem; }
+.modal input, .modal textarea { width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:4px; }
+
+
 .cta-button {
     background: linear-gradient(45deg, #ff6b6b, #ffa726);
     color: white;

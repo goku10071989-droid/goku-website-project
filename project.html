@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Projects</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <i class="fas fa-dragon"></i>
+                <span>Goku's Web Project</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="project.html">My Projects</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button id="signin-btn" class="login-button">Sign in with Google</button>
+                <button id="signout-btn" class="login-button" style="display:none;">Sign out</button>
+                <span id="user-info" style="margin-left:0.5rem;color:white"></span>
+            </div>
+        </nav>
+    </header>
+
+    <main style="padding:2rem">
+        <h1>My Projects</h1>
+        <div style="margin-bottom:1rem;">
+            <button id="new-project-btn" class="cta-button">New Project</button>
+        </div>
+
+        <div id="projects-list"></div>
+
+        <!-- Modal -->
+        <div id="project-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3 id="modal-title">New Project</h3>
+                <label>Name</label>
+                <input id="proj-name" type="text" />
+                <label>Code</label>
+                <textarea id="proj-code" rows="6"></textarea>
+                <label>Description</label>
+                <textarea id="proj-desc" rows="3"></textarea>
+                <div style="margin-top:0.5rem;display:flex;gap:0.5rem;">
+                    <button id="save-project" class="cta-button">Save</button>
+                    <button id="cancel-project" class="login-button">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="project.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></script>
+</body>
+</html>
