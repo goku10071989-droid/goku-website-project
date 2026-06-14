@@ -64,6 +64,29 @@ nav {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Navigation actions (e.g., login button) */
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.login-button {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.18);
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.login-button:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
 /* Hero Section */
 .hero {
     display: flex;
@@ -284,6 +307,12 @@ footer p {
         flex-direction: column;
         gap: 1rem;
     }
+<<<<<<< HEAD
+=======
+    .nav-actions {
+        justify-content: center;
+    }
+>>>>>>> master
     
     .nav-links {
         flex-wrap: wrap;
