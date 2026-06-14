@@ -86,18 +86,51 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Login button handler (demo)
-    const loginButton = document.getElementById('login-button');
-    if (loginButton) {
-        loginButton.addEventListener('click', function() {
-            // Demo behavior: simple prompt flow
-            const username = prompt('Enter username (demo):');
-            if (username) {
-                alert(`Hello, ${username}! (Demo login)`);
-            } else {
-                alert('Login cancelled');
-            }
-        });
+    // Google Sign-In initialization
+    const GOOGLE_CLIENT_ID = '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';
+
+    function handleCredentialResponse(response) {
+        console.log('Encoded JWT ID token: ' + response.credential);
+        alert('Signed in with Google (demo). Check console for the ID token.');
+        // Optionally send ID token to server for verification:
+        // fetch('/sessionLogin', {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({ id_token: response.credential })
+        // });
     }
+
+    function initGoogleSignIn() {
+        const container = document.getElementById('google-signin-button');
+        const oldButton = document.getElementById('login-button');
+        if (oldButton) oldButton.remove();
+        if (!container) return;
+        if (window.google && google.accounts && google.accounts.id) {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleCredentialResponse
+            });
+            google.accounts.id.renderButton(
+                container,
+                { theme: 'outline', size: 'large', text: 'signin_with' }
+            );
+        } else {
+            window.addEventListener('load', () => {
+                if (window.google && google.accounts && google.accounts.id) {
+                    google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: handleCredentialResponse
+                    });
+                    google.accounts.id.renderButton(
+                        container,
+                        { theme: 'outline', size: 'large', text: 'signin_with' }
+                    );
+                }
+            });
+        }
+    }
+
+    initGoogleSignIn();
     
     // Console greeting
     console.log('%c🐉 Kamehameha! Welcome to Goku\'s Website!', 
