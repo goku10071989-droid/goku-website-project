@@ -46,7 +46,12 @@ function updateAuthUI() {
 }
 
 signinBtn?.addEventListener('click', async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+    // Ensure Supabase redirects back to the exact page the user is on.
+    const redirectTo = window.location.origin + window.location.pathname;
+    await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo }
+    });
 });
 
 signoutBtn?.addEventListener('click', async () => {
