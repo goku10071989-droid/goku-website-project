@@ -135,6 +135,31 @@ nav {
 .modal-content { background:white; padding:1rem; border-radius:8px; width:90%; max-width:600px; display:flex; flex-direction:column; gap:0.5rem; }
 .modal input, .modal textarea { width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:4px; }
 
+/* Project card button styles (contrast with white card) */
+.project-card .login-button,
+.project-card a.login-button {
+    background: #f3f4f6;
+    color: #111827;
+    border: 1px solid #d1d5db;
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-block;
+}
+.project-card .login-button:hover,
+.project-card a.login-button:hover {
+    background: #e5e7eb;
+}
+.project-card .cta-button {
+    background: linear-gradient(90deg,#3b82f6,#2563eb);
+    color: white;
+    border: none;
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+}
+.project-card .cta-button:hover { filter:brightness(0.95); }
+
+
 
 .cta-button {
     background: linear-gradient(45deg, #ff6b6b, #ffa726);
