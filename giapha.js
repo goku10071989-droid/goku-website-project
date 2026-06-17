@@ -1,6 +1,11 @@
 let familyData = null;
         let selectedNodeId = null;
 
+// Supabase config (provided)
+const SUPABASE_URL = 'https://hewkwhlkdfvqjqnhvrgs.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_RUqmL2o8pQjeqnPloJIxtQ_m7hDyZzJ';
+let supabaseClient = null;
+
         // Cấu hình các biến phục vụ tính năng Zoom và Kéo thả (Pan)
         let scale = 1;
         let panX = 0;
@@ -52,6 +57,85 @@ let familyData = null;
             document.body.classList.add('sidebar-collapsed');
             updateSidebarToggleButton();
             initPanZoomListeners(); // Kích hoạt bộ lắng nghe sự kiện kéo thả chuột
+            initSupabase(); // Initialize Supabase auth (non-blocking)
+        }
+
+        // Supabase auth initialization and helpers
+        async function initSupabase() {
+            try {
+                const m = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+                const { createClient } = m;
+                supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+                window.supabase = supabaseClient;
+
+                // Try to get existing session
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    updateAuthUI(session);
+                } catch (err) {
+                    console.warn('Supabase getSession failed', err);
+                }
+
+                // Listen for auth state changes
+                supabaseClient.auth.onAuthStateChange((event, session) => {
+                    updateAuthUI(session);
+                });
+
+                // If redirected back from OAuth, attempt to complete the flow
+                if (location.search.includes('access_token') || location.search.includes('code')) {
+                    try {
+                        await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
+                        const { data: { session } } = await supabaseClient.auth.getSession();
+                        updateAuthUI(session);
+                        history.replaceState({}, document.title, location.pathname);
+                    } catch (err) {
+                        console.warn('No session from URL', err);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load Supabase client:', err);
+            }
+        }
+
+        function updateAuthUI(session) {
+            const userInfoEl = document.getElementById('user-info');
+            const signInBtn = document.getElementById('sign-in-btn');
+            const signOutBtn = document.getElementById('sign-out-btn');
+            if (!userInfoEl || !signInBtn || !signOutBtn) return;
+
+            if (session && session.user) {
+                const email = session.user.email || (session.user.user_metadata && session.user.user_metadata.email) || '';
+                userInfoEl.style.display = 'block';
+                userInfoEl.innerText = 'Đăng nhập: ' + email;
+                signInBtn.style.display = 'none';
+                signOutBtn.style.display = 'block';
+            } else {
+                userInfoEl.style.display = 'none';
+                userInfoEl.innerText = '';
+                signInBtn.style.display = 'block';
+                signOutBtn.style.display = 'none';
+            }
+        }
+
+        async function signInWithGoogle() {
+            if (!supabaseClient) await initSupabase();
+            try {
+                await supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href } });
+            } catch (err) {
+                console.error('Sign in failed', err);
+                alert('Đăng nhập thất bại: ' + (err.message || err));
+            }
+        }
+
+        async function signOut() {
+            if (!supabaseClient) await initSupabase();
+            try {
+                await supabaseClient.auth.signOut();
+                updateAuthUI(null);
+            } catch (err) {
+                console.error('Sign out failed', err);
+                alert('Đăng xuất thất bại: ' + (err.message || err));
+            }
         }
 
         function toggleSidebar() {
@@ -384,12 +468,21 @@ let familyData = null;
 
             if (type === 'root') {
                 document.getElementById('form-title').innerText = "Thêm Thành Viên Gốc";
+                // Show family/tree name field when creating root
+                document.getElementById('family-name-group').style.display = 'block';
+                const famInput = document.getElementById('input-family-name');
+                famInput.value = (familyData && familyData.treeName) ? familyData.treeName : '';
+                famInput.setAttribute('required', 'required');
             } else if (type === 'spouse') {
                 document.getElementById('form-title').innerText = "Thêm Vợ / Chồng";
+                document.getElementById('family-name-group').style.display = 'none';
+                document.getElementById('input-family-name').removeAttribute('required');
                 const current = res.type === 'member' ? res.node : res.mainMember;
                 document.getElementById('input-gender').value = current.gender === 'Nam' ? 'Nữ' : 'Nam';
             } else if (type === 'child') {
                 document.getElementById('form-title').innerText = "Thêm Con";
+                document.getElementById('family-name-group').style.display = 'none';
+                document.getElementById('input-family-name').removeAttribute('required');
                 document.getElementById('order-group').style.display = 'flex';
                 
                 const bloodlineNode = res.type === 'member' ? res.node : res.mainMember;
@@ -422,6 +515,15 @@ let familyData = null;
             document.getElementById('input-gender').value = node.gender;
             document.getElementById('input-birth').value = node.birthYear || '';
             document.getElementById('input-death').value = (node.deathYear === 'Đang sống') ? '' : node.deathYear;
+            // If editing the root member, allow editing the family/tree name
+            if (res.type === 'member' && !res.parent) {
+                document.getElementById('family-name-group').style.display = 'block';
+                document.getElementById('input-family-name').value = familyData && familyData.treeName ? familyData.treeName : '';
+                document.getElementById('input-family-name').removeAttribute('required');
+            } else {
+                document.getElementById('family-name-group').style.display = 'none';
+                document.getElementById('input-family-name').removeAttribute('required');
+            }
             
             if (res.type === 'member' && res.parent) {
                 document.getElementById('order-group').style.display = 'flex';
@@ -459,6 +561,7 @@ let familyData = null;
             let death = document.getElementById('input-death').value || "Đang sống";
             const order = parseInt(document.getElementById('input-order').value) || 1;
             const spouseParentId = document.getElementById('input-spouse-parent').value || "";
+            const familyName = (document.getElementById('input-family-name') && document.getElementById('input-family-name').value) ? document.getElementById('input-family-name').value.trim() : '';
 
             if (type === 'edit') {
                 const res = findNodeById(familyData, selectedNodeId);
@@ -474,11 +577,19 @@ let familyData = null;
                         if (res.parent) {
                             res.parent.children.sort((a, b) => (a.birthOrder || 1) - (b.birthOrder || 1));
                         }
+                        // If editing the root member, also allow updating the family/tree name
+                        if (!res.parent) {
+                            if (familyName) familyData.treeName = familyName;
+                        }
                     }
                 }
             } else if (type === 'root') {
+                if (!familyName) {
+                    alert('Vui lòng nhập Tên Gia Phả.');
+                    return;
+                }
                 familyData = {
-                    id: generateId(), name: name, gender: gender, birthYear: birth, deathYear: death,
+                    id: generateId(), treeName: familyName, name: name, gender: gender, birthYear: birth, deathYear: death,
                     birthOrder: 1, spouses: [], children: []
                 };
                 selectedNodeId = familyData.id;
@@ -705,16 +816,6 @@ let familyData = null;
             event.target.value = ''; 
         }
 
-        function clearTree() {
-            if (confirm("Bạn có chắc chắn muốn xóa sạch cây gia phả hiện tại không?")) {
-                familyData = null;
-                selectedNodeId = null;
-                localStorage.removeItem('family_tree_data');
-                hideForm();
-                resetZoom();
-                renderTree();
-            }
-        }
 
         window.addEventListener('afterprint', restoreAfterPrint);
         window.onload = init;
