@@ -120,7 +120,11 @@ let supabaseClient = null;
         async function signInWithGoogle() {
             if (!supabaseClient) await initSupabase();
             try {
-                await supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href } });
+                const redirectTo = window.location.origin + window.location.pathname;
+                await supabaseClient.auth.signInWithOAuth({ 
+                    provider: 'google', 
+                    options: { redirectTo }
+                });
             } catch (err) {
                 console.error('Sign in failed', err);
                 alert('Đăng nhập thất bại: ' + (err.message || err));
