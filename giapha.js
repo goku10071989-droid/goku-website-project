@@ -79,6 +79,56 @@ let familyData = null;
             }
         }
 
+        // Load list of families owned by the user and render in sidebar (index.html)
+        async function loadFamilies(user) {
+            if (!user || !window.supabase) return;
+            const panel = document.getElementById('families-list-panel');
+            const listEl = document.getElementById('families-list');
+            const createBtn = document.getElementById('create-family-btn');
+            if (!panel || !listEl || !createBtn) return;
+            panel.style.display = 'block';
+            listEl.innerHTML = '<div style="color:#777;">Đang tải...</div>';
+
+            try {
+                const { data, error } = await window.supabase
+                    .from('families')
+                    .select('id,name,created_at')
+                    .eq('owner_id', user.id)
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    listEl.innerHTML = '<div style="color:#777;">Bạn chưa có cây gia phả nào.</div>';
+                    createBtn.style.display = 'block';
+                } else {
+                    createBtn.style.display = 'block';
+                    listEl.innerHTML = data.map(f => {
+                        const when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
+                        return `<div class="family-item" style="padding:6px 4px; border-bottom:1px solid #f0f0f0; cursor:pointer;" onclick="openFamily('${f.id}')">` +
+                            `<div style="font-weight:600;">${escapeHtml(f.name)}</div>` +
+                            `<div style="font-size:12px; color:#666;">Tạo: ${when}</div>` +
+                        `</div>`;
+                    }).join('');
+                }
+            } catch (err) {
+                console.error('Failed to load families', err);
+                listEl.innerHTML = '<div style="color:#c00;">Lỗi khi tải danh sách.</div>';
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, function(m) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[m]; });
+        }
+
+        // Open a family in the editor page
+        function openFamily(familyId) {
+            if (!familyId) return;
+            const base = location.pathname.replace(/\/[^\/]*$/, '');
+            const sep = base.endsWith('/') ? '' : '/';
+            window.location.href = base + sep + 'giapha.html?family_id=' + encodeURIComponent(familyId);
+        }
+
         // Sign-in/out provided by auth.js as window.signInWithGoogle / window.signOut
 
         function toggleSidebar() {
