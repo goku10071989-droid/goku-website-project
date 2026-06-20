@@ -56,24 +56,32 @@
             // Expose a manual debug trigger
             window.debugAuthCheck = function() { console.log('[auth] debugAuthCheck invoked'); return handleAuthFromUrlOnce(onAuthChange); };
 
-            // Poll briefly for session as a fallback
+            // Poll for session as a fallback (extended window to catch late fragments)
             let pollCount = 0;
             const pollInterval = setInterval(async () => {
                 pollCount++;
                 try {
                     if (authHandledFromUrl) { clearInterval(pollInterval); return; }
+                    console.log('[auth] poll check', { pollCount, locationHash: location.hash });
                     await supabaseClient.auth.getSessionFromUrl({ storeSession: true }).catch(()=>{});
                     const { data: { session } } = await supabaseClient.auth.getSession();
                     if (session && session.user) {
+                        console.log('[auth] session found in poll', { pollCount, session });
                         if (onAuthChange) onAuthChange(session);
                         authHandledFromUrl = true;
                         try { history.replaceState({}, document.title, location.pathname + location.search); } catch(e) {}
                         clearInterval(pollInterval);
                         return;
                     }
-                } catch(e) {}
-                if (pollCount > 12) clearInterval(pollInterval);
+                } catch(e) { console.warn('[auth] poll error', e); }
+                // keep polling longer (20s) to handle delayed fragments
+                if (pollCount > 40) clearInterval(pollInterval);
             }, 500);
+
+            // Some browsers / hosting setups may append the fragment after load.
+            // Also catch pageshow (bfcache), and visibilitychange when fragment may appear.
+            window.addEventListener('pageshow', (e) => { console.log('[auth] pageshow', { persisted: e.persisted, hash: location.hash }); handleAuthFromUrlOnce(onAuthChange).catch(()=>{}); });
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { console.log('[auth] visibilitychange visible', { hash: location.hash }); handleAuthFromUrlOnce(onAuthChange).catch(()=>{}); } });
 
             return supabaseClient;
         } catch (err) {
