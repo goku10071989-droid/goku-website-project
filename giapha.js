@@ -1,5 +1,6 @@
 let familyData = null;
         let selectedNodeId = null;
+let authHandledFromUrl = false;
 
 // Supabase config (provided)
 const SUPABASE_URL = 'https://hewkwhlkdfvqjqnhvrgs.supabase.co';
@@ -103,19 +104,34 @@ let supabaseClient = null;
 
                 // If redirected back from OAuth, attempt to complete the flow.
                 // Supabase may return tokens in the URL hash (e.g. #access_token=...)
-                const hasAuthInSearch = location.search.includes('access_token') || location.search.includes('code');
-                const hasAuthInHash = location.hash && (location.hash.includes('access_token') || location.hash.includes('code') || location.hash.includes('type='));
-                if (hasAuthInSearch || hasAuthInHash) {
+                // Try to handle auth tokens in URL now, and also handle them if they appear later
+                async function handleAuthFromUrlOnce() {
+                    if (authHandledFromUrl) return;
+                    const hasAuthInSearch = location.search.includes('access_token') || location.search.includes('code');
+                    const hasAuthInHash = location.hash && (location.hash.includes('access_token') || location.hash.includes('code') || location.hash.includes('type='));
+                    if (!(hasAuthInSearch || hasAuthInHash)) return;
                     try {
                         await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
                         const { data: { session } } = await supabaseClient.auth.getSession();
                         updateAuthUI(session);
+                        authHandledFromUrl = true;
                         // Remove auth fragments from the URL for cleanliness
                         try { history.replaceState({}, document.title, location.pathname + location.search); } catch(e) {}
                     } catch (err) {
                         console.warn('No session from URL', err);
                     }
                 }
+
+                // Attempt immediately
+                handleAuthFromUrlOnce();
+                // Also listen for the hash changing (some browsers may set the hash slightly after load/debugger resume)
+                window.addEventListener('hashchange', () => {
+                    handleAuthFromUrlOnce().catch(() => {});
+                });
+                // Also listen for popstate (back/forward) as a fallback
+                window.addEventListener('popstate', () => {
+                    handleAuthFromUrlOnce().catch(() => {});
+                });
             } catch (err) {
                 console.error('Failed to load Supabase client:', err);
             }
