@@ -39,13 +39,13 @@ let familyData = null;
                         if (!resp.ok) throw new Error('No local JSON file');
                         return resp.text();
                     })
-                    .then(text => {
+                    .then(async text => {
                         try {
                             const parsed = JSON.parse(text);
                             if (parsed && parsed.id && parsed.name) {
                                 familyData = parsed;
                                 selectedNodeId = familyData.id;
-                                saveToStorage();
+                                await saveToStorage();
                                 renderTree();
                                 selectMember(familyData.id);
                             } else {
@@ -235,8 +235,69 @@ let familyData = null;
             return null;
         }
 
-        function saveToStorage() {
-            localStorage.setItem('family_tree_data', JSON.stringify(familyData));
+        async function saveToStorage() {
+            try {
+                // If Supabase client available and user signed in, persist to DB first
+                if (window.supabase) {
+                    try {
+                        const { data: { session } } = await window.supabase.auth.getSession();
+                        if (session && session.user) {
+                            const owner_id = session.user.id;
+                            const params = new URLSearchParams(location.search);
+                            const familyIdFromQuery = params.get('family_id');
+
+                            // Prepare row payload
+                            const payload = {
+                                name: (familyData && (familyData.treeName || familyData.name)) ? (familyData.treeName || familyData.name) : 'Gia phả',
+                                owner_id,
+                                content: familyData
+                            };
+
+                            if (familyIdFromQuery) {
+                                // Update existing row
+                                const { data, error } = await window.supabase
+                                    .from('families')
+                                    .update(payload)
+                                    .eq('id', familyIdFromQuery)
+                                    .select('id')
+                                    .single();
+                                if (error) console.warn('[giapha] failed to update family row', error);
+                                else if (data && data.id) {
+                                    // ensure local id matches DB id
+                                    if (!familyData.id || familyData.id !== data.id) familyData.id = data.id;
+                                }
+                            } else {
+                                // Insert new row
+                                const { data, error } = await window.supabase
+                                    .from('families')
+                                    .insert(payload)
+                                    .select('id')
+                                    .single();
+                                if (error) {
+                                    console.warn('[giapha] failed to insert family row', error);
+                                } else if (data && data.id) {
+                                    // set familyData id to DB id and update URL (without reloading)
+                                    familyData.id = data.id;
+                                    const newUrl = new URL(location.href);
+                                    newUrl.searchParams.set('family_id', data.id);
+                                    history.replaceState(history.state, '', newUrl.toString());
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[giapha] error while saving to supabase', e);
+                    }
+                }
+            } catch (err) {
+                console.warn('[giapha] saveToStorage outer error', err);
+            }
+
+            // Always save a local copy
+            try {
+                localStorage.setItem('family_tree_data', JSON.stringify(familyData));
+            } catch (e) {
+                console.warn('[giapha] failed to write localStorage', e);
+            }
         }
 
         function countPersons(root) {
@@ -467,7 +528,7 @@ let familyData = null;
         }
 
         // CHỨC NĂNG XÓA THÀNH VIÊN
-        function deleteMember() {
+        async function deleteMember() {
             if (!selectedNodeId) return;
             
             const res = findNodeById(familyData, selectedNodeId);
@@ -507,7 +568,7 @@ let familyData = null;
                     selectedNodeId = res.parent.id; // Chuyển vùng chọn về cha mẹ của người vừa xóa
                 }
 
-                saveToStorage();
+                await saveToStorage();
                 hideForm();
                 renderTree();
             }
@@ -654,36 +715,7 @@ let familyData = null;
                 };
                 selectedNodeId = familyData.id;
 
-                // If Supabase available and user signed in, save to families table and redirect to editor with family_id
-                try {
-                    if (window.supabase) {
-                        const { data: { session } } = await window.supabase.auth.getSession();
-                        if (session && session.user) {
-                            const ownerId = session.user.id;
-                            const payload = { name: familyName, owner_id: ownerId, content: familyData };
-                            const { data: inserted, error: insertErr } = await window.supabase
-                                .from('families')
-                                .insert([payload])
-                                .select('id')
-                                .single();
-                            if (insertErr) {
-                                console.error('Insert family failed', insertErr);
-                                alert('Lưu cây gia phả thất bại: ' + insertErr.message);
-                            } else if (inserted && inserted.id) {
-                                // Redirect to editor for the new family
-                                const base = location.pathname.replace(/\/[^\/]*$/, '');
-                                const sep = base.endsWith('/') ? '' : '/';
-                                window.location.href = base + sep + 'giapha.html?family_id=' + encodeURIComponent(inserted.id);
-                                return;
-                            }
-                        } else {
-                            alert('Vui lòng đăng nhập để lưu lên máy chủ.');
-                        }
-                    }
-                } catch (err) {
-                    console.error('Failed saving family to Supabase', err);
-                    alert('Lưu cây gia phả thất bại.');
-                }
+                
             } else if (type === 'spouse') {
                 const res = findNodeById(familyData, selectedNodeId);
                 const target = res.type === 'member' ? res.node : res.mainMember;
@@ -706,7 +738,7 @@ let familyData = null;
                 }
             }
 
-            saveToStorage();
+            await saveToStorage();
             hideForm();
             renderTree();
             selectMember(selectedNodeId);
@@ -892,7 +924,7 @@ let familyData = null;
                     if (parsedData && parsedData.name && parsedData.id) {
                         familyData = parsedData;
                         selectedNodeId = familyData.id;
-                        saveToStorage();
+                                    (async () => { await saveToStorage(); })();
                         resetZoom(); // Reset lại màn hình cho người dùng dễ nhìn cấu trúc cây mới nhập
                         renderTree();
                         alert("Nhập dữ liệu gia phả thành công!");
