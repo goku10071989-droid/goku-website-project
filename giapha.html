@@ -13,6 +13,14 @@
         <h2>Quản Lý Gia Phả</h2>
         <div id="total-count" style="font-size:14px; color:#555; margin-top:6px;">Tổng thành viên: 0</div>
         
+            <div id="auth-section" style="margin-top:10px;">
+                <div id="user-info" style="font-size:13px; color:#333; display:none;"></div>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <button id="sign-in-btn" onclick="signInWithGoogle()" style="flex:1; background:#2f80ed; color:#fff; border: none; padding:6px 8px;">Sign in with Google</button>
+                    <button id="sign-out-btn" onclick="signOut()" style="flex:1; background:#e74c3c; color:#fff; border: none; padding:6px 8px; display:none;">Sign out</button>
+                </div>
+            </div>
+        
         <div id="root-actions" style="display: none;">
             <h3>Khởi Tạo Gia Phả</h3>
             <p style="font-size: 13px; margin-bottom: 10px; color: #666;">Chưa có thành viên nào. Hãy thêm người gốc (Root) đầu tiên.</p>
@@ -39,6 +47,10 @@
             <h3 id="form-title">Nhập thông tin</h3>
             <form id="member-form" onsubmit="handleFormSubmit(event)">
                 <input type="hidden" id="form-type">
+                <div class="form-group" id="family-name-group" style="display: none;">
+                    <label for="input-family-name">Tên Gia Phả (Bắt buộc khi tạo):</label>
+                    <input type="text" id="input-family-name">
+                </div>
                 
                 <div class="form-group">
                     <label for="input-name">Họ và Tên:</label>
@@ -87,7 +99,6 @@
                 <button onclick="triggerImportJSON()" style="flex: 1; background-color: #34495e;">Mở file</button>
             </div>
             <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importJSON(event)">
-            <button class="btn-danger" onclick="clearTree()">Xóa Toàn Bộ Cây</button>
         </div>
     </div>
 
