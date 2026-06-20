@@ -124,6 +124,31 @@ let supabaseClient = null;
 
                 // Attempt immediately
                 handleAuthFromUrlOnce();
+                // Also poll briefly for session in case tokens are applied a bit later
+                let pollCount = 0;
+                const pollInterval = setInterval(async () => {
+                    pollCount++;
+                    try {
+                        if (authHandledFromUrl) {
+                            clearInterval(pollInterval);
+                            return;
+                        }
+                        // Try to extract session from URL if present
+                        await supabaseClient.auth.getSessionFromUrl({ storeSession: true }).catch(() => {});
+                        const { data: { session } } = await supabaseClient.auth.getSession();
+                        if (session && session.user) {
+                            updateAuthUI(session);
+                            authHandledFromUrl = true;
+                            clearInterval(pollInterval);
+                            // Clean URL
+                            try { history.replaceState({}, document.title, location.pathname + location.search); } catch(e) {}
+                            return;
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                    if (pollCount > 12) clearInterval(pollInterval); // stop after ~6 seconds
+                }, 500);
                 // Also listen for the hash changing (some browsers may set the hash slightly after load/debugger resume)
                 window.addEventListener('hashchange', () => {
                     handleAuthFromUrlOnce().catch(() => {});
@@ -281,7 +306,8 @@ let supabaseClient = null;
         async function signInWithGoogle() {
             if (!supabaseClient) await initSupabase();
             try {
-                const redirectTo = window.location.origin + window.location.pathname;
+                // Use current URL without hash so OAuth returns to this page reliably
+                const redirectTo = window.location.href.split('#')[0];
                 await supabaseClient.auth.signInWithOAuth({ 
                     provider: 'google', 
                     options: { redirectTo }
