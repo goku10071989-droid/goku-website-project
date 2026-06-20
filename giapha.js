@@ -327,27 +327,30 @@ let familyData = null;
         function initPanZoomListeners() {
             const container = document.getElementById('tree-container');
             
-            // Bắt đầu nhấp chuột để kéo
-            container.addEventListener('mousedown', (e) => {
+            // Bắt đầu kéo: dùng Pointer Events để hoạt động ổn định trên chuột và touchpads
+            container.addEventListener('pointerdown', (e) => {
                 if (document.body.classList.contains('print-mode')) return;
                 // Nếu click vào các thẻ thành viên hoặc nút bấm thì không kích hoạt kéo màn hình
-                if (e.target.closest('.card') || e.target.closest('.zoom-controls')) return;
+                if (e.target.closest && (e.target.closest('.card') || e.target.closest('.zoom-controls') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select'))) return;
                 isDragging = true;
                 startX = e.clientX - panX;
                 startY = e.clientY - panY;
+                try { container.setPointerCapture && container.setPointerCapture(e.pointerId); } catch(_) {}
             });
 
-            // Di chuyển chuột khi đang giữ
-            window.addEventListener('mousemove', (e) => {
+            // Di chuyển khi pointer thay đổi
+            window.addEventListener('pointermove', (e) => {
                 if (!isDragging) return;
                 panX = e.clientX - startX;
                 panY = e.clientY - startY;
                 applyTransform();
             });
 
-            // Thả chuột
-            window.addEventListener('mouseup', () => {
+            // Kết thúc kéo
+            window.addEventListener('pointerup', (e) => {
+                if (!isDragging) return;
                 isDragging = false;
+                try { container.releasePointerCapture && container.releasePointerCapture(e.pointerId); } catch(_) {}
             });
 
             // Lăn bánh xe chuột để Zoom In / Zoom Out
