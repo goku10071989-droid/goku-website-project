@@ -326,12 +326,19 @@ let familyData = null;
         // QUẢN LÝ TÍNH NĂNG ZOOM & PAN (KÉO THẢ)
         function initPanZoomListeners() {
             const container = document.getElementById('tree-container');
+            if (!container) {
+                console.error('[giapha] initPanZoomListeners: #tree-container not found');
+                return;
+            }
+            console.log('[giapha] initPanZoomListeners: attaching pointer listeners to #tree-container');
             
             // Bắt đầu kéo: dùng Pointer Events để hoạt động ổn định trên chuột và touchpads
-            container.addEventListener('pointerdown', (e) => {
+            if (window.PointerEvent) {
+                container.addEventListener('pointerdown', (e) => {
                 if (document.body.classList.contains('print-mode')) return;
                 // Nếu click vào các thẻ thành viên hoặc nút bấm thì không kích hoạt kéo màn hình
                 if (e.target.closest && (e.target.closest('.card') || e.target.closest('.zoom-controls') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select'))) return;
+                console.log('[giapha] pointerdown', {x: e.clientX, y: e.clientY, target: e.target.tagName});
                 isDragging = true;
                 startX = e.clientX - panX;
                 startY = e.clientY - panY;
@@ -339,19 +346,44 @@ let familyData = null;
             });
 
             // Di chuyển khi pointer thay đổi
-            window.addEventListener('pointermove', (e) => {
+                window.addEventListener('pointermove', (e) => {
                 if (!isDragging) return;
+                // throttle small moves? keep simple for now
                 panX = e.clientX - startX;
                 panY = e.clientY - startY;
+                // small debug
+                // console.log('[giapha] pointermove', {panX, panY});
                 applyTransform();
             });
 
             // Kết thúc kéo
-            window.addEventListener('pointerup', (e) => {
-                if (!isDragging) return;
-                isDragging = false;
-                try { container.releasePointerCapture && container.releasePointerCapture(e.pointerId); } catch(_) {}
-            });
+                window.addEventListener('pointerup', (e) => {
+                    if (!isDragging) return;
+                    console.log('[giapha] pointerup');
+                    isDragging = false;
+                    try { container.releasePointerCapture && container.releasePointerCapture(e.pointerId); } catch(_) {}
+                });
+            } else {
+                // Fallback for older browsers: mouse events
+                container.addEventListener('mousedown', (e) => {
+                    if (document.body.classList.contains('print-mode')) return;
+                    if (e.target.closest && (e.target.closest('.card') || e.target.closest('.zoom-controls') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select'))) return;
+                    isDragging = true;
+                    startX = e.clientX - panX;
+                    startY = e.clientY - panY;
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    panX = e.clientX - startX;
+                    panY = e.clientY - startY;
+                    applyTransform();
+                });
+
+                window.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+            }
 
             // Lăn bánh xe chuột để Zoom In / Zoom Out
             container.addEventListener('wheel', (e) => {
