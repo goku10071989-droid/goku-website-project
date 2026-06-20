@@ -101,13 +101,17 @@ let supabaseClient = null;
                     updateAuthUI(session);
                 });
 
-                // If redirected back from OAuth, attempt to complete the flow
-                if (location.search.includes('access_token') || location.search.includes('code')) {
+                // If redirected back from OAuth, attempt to complete the flow.
+                // Supabase may return tokens in the URL hash (e.g. #access_token=...)
+                const hasAuthInSearch = location.search.includes('access_token') || location.search.includes('code');
+                const hasAuthInHash = location.hash && (location.hash.includes('access_token') || location.hash.includes('code') || location.hash.includes('type='));
+                if (hasAuthInSearch || hasAuthInHash) {
                     try {
                         await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
                         const { data: { session } } = await supabaseClient.auth.getSession();
                         updateAuthUI(session);
-                        history.replaceState({}, document.title, location.pathname);
+                        // Remove auth fragments from the URL for cleanliness
+                        try { history.replaceState({}, document.title, location.pathname + location.search); } catch(e) {}
                     } catch (err) {
                         console.warn('No session from URL', err);
                     }
