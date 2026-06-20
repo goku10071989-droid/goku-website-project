@@ -12,7 +12,20 @@ let familyData = null;
         let initialScaleForPinch = null;
         let prePrintState = null;
 
-        function init() {
+        async function init() {
+            // If URL contains family_id, load that family from Supabase and render
+            try {
+                const params = new URLSearchParams(location.search);
+                const familyIdFromQuery = params.get('family_id');
+                if (familyIdFromQuery) {
+                    if (window.initAuth) await window.initAuth(updateAuthUI);
+                    await loadFamilyById(familyIdFromQuery);
+                    return;
+                }
+            } catch (err) {
+                console.warn('Failed to parse family_id from URL', err);
+            }
+
             const savedData = localStorage.getItem('family_tree_data');
             if (savedData) {
                 familyData = JSON.parse(savedData);
@@ -113,6 +126,58 @@ let familyData = null;
             } catch (err) {
                 console.error('Failed to load families', err);
                 listEl.innerHTML = '<div style="color:#c00;">Lỗi khi tải danh sách.</div>';
+            }
+        }
+
+        // Load a single family by id and render tree
+        async function loadFamilyById(familyId) {
+            if (!familyId) return;
+            if (!window.supabase) {
+                if (window.initAuth) await window.initAuth(updateAuthUI);
+                if (!window.supabase) {
+                    console.error('[giapha] supabase client not available');
+                    return;
+                }
+            }
+            try {
+                const { data, error } = await window.supabase.from('families').select('*').eq('id', familyId).single();
+                if (error) {
+                    console.error('[giapha] loadFamilyById error', error);
+                    return;
+                }
+                if (!data) {
+                    console.warn('[giapha] no family row found for id', familyId);
+                    return;
+                }
+
+                // data.content is expected to be the saved family JSON
+                let content = data.content;
+                if (!content) {
+                    // If no content, create minimal structure from row
+                    content = { id: data.id, treeName: data.name || '', name: data.name || '', spouses: [], children: [] };
+                }
+                // If content is a string, try to parse
+                if (typeof content === 'string') {
+                    try { content = JSON.parse(content); } catch(e) { /* ignore */ }
+                }
+
+                familyData = content;
+                // Ensure id present
+                if (!familyData.id) familyData.id = data.id;
+                selectedNodeId = familyData.id;
+                // Hide root-actions and show tree
+                const rootAct = document.getElementById('root-actions'); if (rootAct) rootAct.style.display = 'none';
+                renderTree();
+                // Update auth UI owner check
+                try {
+                    const { data: { session } } = await window.supabase.auth.getSession();
+                    if (session && session.user && session.user.id !== data.owner_id) {
+                        // If not owner, disable edit buttons
+                        document.getElementById('form-container')?.querySelectorAll('input,select,button,textarea')?.forEach(el => el.setAttribute('disabled','disabled'));
+                    }
+                } catch(e) {}
+            } catch (err) {
+                console.error('[giapha] failed to load family by id', err);
             }
         }
 
