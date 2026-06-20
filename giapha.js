@@ -1,11 +1,5 @@
 let familyData = null;
-        let selectedNodeId = null;
-let authHandledFromUrl = false;
-
-// Supabase config (provided)
-const SUPABASE_URL = 'https://hewkwhlkdfvqjqnhvrgs.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_RUqmL2o8pQjeqnPloJIxtQ_m7hDyZzJ';
-let supabaseClient = null;
+    let selectedNodeId = null;
 
         // Cấu hình các biến phục vụ tính năng Zoom và Kéo thả (Pan)
         let scale = 1;
@@ -32,7 +26,7 @@ let supabaseClient = null;
                 if (familyId) {
                     // Delay until supabase client initialized
                     (async () => {
-                        if (!supabaseClient) await initSupabase();
+                        if (!window.supabase && window.initAuth) await window.initAuth(updateAuthUI);
                         await loadFamilyById(familyId);
                     })();
                 }
@@ -78,89 +72,10 @@ let supabaseClient = null;
             document.body.classList.add('sidebar-collapsed');
             updateSidebarToggleButton();
             initPanZoomListeners(); // Kích hoạt bộ lắng nghe sự kiện kéo thả chuột
-            initSupabase(); // Initialize Supabase auth (non-blocking)
+            if (window.initAuth) window.initAuth(updateAuthUI); // Initialize Supabase auth (non-blocking)
         }
 
-        // Supabase auth initialization and helpers
-        async function initSupabase() {
-            try {
-                const m = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-                const { createClient } = m;
-                supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
-                window.supabase = supabaseClient;
-
-                // Try to get existing session
-                try {
-                    const { data: { session } } = await supabaseClient.auth.getSession();
-                    updateAuthUI(session);
-                } catch (err) {
-                    console.warn('Supabase getSession failed', err);
-                }
-
-                // Listen for auth state changes
-                supabaseClient.auth.onAuthStateChange((event, session) => {
-                    updateAuthUI(session);
-                });
-
-                // If redirected back from OAuth, attempt to complete the flow.
-                // Supabase may return tokens in the URL hash (e.g. #access_token=...)
-                // Try to handle auth tokens in URL now, and also handle them if they appear later
-                async function handleAuthFromUrlOnce() {
-                    if (authHandledFromUrl) return;
-                    const hasAuthInSearch = location.search.includes('access_token') || location.search.includes('code');
-                    const hasAuthInHash = location.hash && (location.hash.includes('access_token') || location.hash.includes('code') || location.hash.includes('type='));
-                    if (!(hasAuthInSearch || hasAuthInHash)) return;
-                    try {
-                        await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
-                        const { data: { session } } = await supabaseClient.auth.getSession();
-                        updateAuthUI(session);
-                        authHandledFromUrl = true;
-                        // Remove auth fragments from the URL for cleanliness
-                        try { history.replaceState({}, document.title, location.pathname + location.search); } catch(e) {}
-                    } catch (err) {
-                        console.warn('No session from URL', err);
-                    }
-                }
-
-                // Attempt immediately
-                handleAuthFromUrlOnce();
-                // Also poll briefly for session in case tokens are applied a bit later
-                let pollCount = 0;
-                const pollInterval = setInterval(async () => {
-                    pollCount++;
-                    try {
-                        if (authHandledFromUrl) {
-                            clearInterval(pollInterval);
-                            return;
-                        }
-                        // Try to extract session from URL if present
-                        await supabaseClient.auth.getSessionFromUrl({ storeSession: true }).catch(() => {});
-                        const { data: { session } } = await supabaseClient.auth.getSession();
-                        if (session && session.user) {
-                            updateAuthUI(session);
-                            authHandledFromUrl = true;
-                            clearInterval(pollInterval);
-                            // Clean URL
-                            try { history.replaceState({}, document.title, location.pathname + location.search); } catch(e) {}
-                            return;
-                        }
-                    } catch (e) {
-                        // ignore
-                    }
-                    if (pollCount > 12) clearInterval(pollInterval); // stop after ~6 seconds
-                }, 500);
-                // Also listen for the hash changing (some browsers may set the hash slightly after load/debugger resume)
-                window.addEventListener('hashchange', () => {
-                    handleAuthFromUrlOnce().catch(() => {});
-                });
-                // Also listen for popstate (back/forward) as a fallback
-                window.addEventListener('popstate', () => {
-                    handleAuthFromUrlOnce().catch(() => {});
-                });
-            } catch (err) {
-                console.error('Failed to load Supabase client:', err);
-            }
-        }
+        // Supabase auth is handled by auth.js; use window.initAuth / window.supabase
 
         function updateAuthUI(session) {
             const userInfoEl = document.getElementById('user-info');
@@ -191,7 +106,7 @@ let supabaseClient = null;
 
         // Load list of families owned by the user and render in sidebar (index.html)
         async function loadFamilies(user) {
-            if (!user || !supabaseClient) return;
+            if (!user || !window.supabase) return;
             const panel = document.getElementById('families-list-panel');
             const listEl = document.getElementById('families-list');
             const createBtn = document.getElementById('create-family-btn');
@@ -200,7 +115,7 @@ let supabaseClient = null;
             listEl.innerHTML = '<div style="color:#777;">Đang tải...</div>';
 
             try {
-                const { data, error } = await supabaseClient
+                const { data, error } = await window.supabase
                     .from('families')
                     .select('id,name,created_at')
                     .eq('owner_id', user.id)
@@ -242,15 +157,18 @@ let supabaseClient = null;
 
         // Save family row to Supabase and redirect to giapha editor
         async function saveFamilyToSupabase(treeObj, familyName) {
-            if (!supabaseClient) await initSupabase();
+            if (!window.supabase && window.initAuth) await window.initAuth(updateAuthUI);
             try {
-                const { data, error } = await supabaseClient.from('families').insert([{ owner_id: (await supabaseClient.auth.getSession()).data.session.user.id, name: familyName, content: treeObj }]).select();
+                const session = await window.supabase.auth.getSession();
+                const ownerId = session && session.data && session.data.session && session.data.session.user ? session.data.session.user.id : null;
+                const { data, error } = await window.supabase.from('families').insert([{ owner_id: ownerId, name: familyName, content: treeObj }]).select();
                 if (error) throw error;
                 const inserted = Array.isArray(data) ? data[0] : data;
                 if (inserted && inserted.id) {
-                    // Redirect to editor
+                    // Redirect to editor (use query param)
                     const base = location.pathname.replace(/\/[^\/]*$/, '');
-                    window.location.href = base + '/giapha.html/' + inserted.id;
+                    const sep = base.endsWith('/') ? '' : '/';
+                    window.location.href = base + sep + 'giapha.html?family_id=' + encodeURIComponent(inserted.id);
                 } else {
                     alert('Lưu gia phả thất bại: Không nhận được id từ server.');
                 }
@@ -263,9 +181,9 @@ let supabaseClient = null;
         // Load a family by id (used on giapha.html/{id})
         async function loadFamilyById(familyId) {
             if (!familyId) return;
-            if (!supabaseClient) await initSupabase();
+            if (!window.supabase && window.initAuth) await window.initAuth(updateAuthUI);
             try {
-                const { data, error } = await supabaseClient.from('families').select('*').eq('id', familyId).maybeSingle();
+                const { data, error } = await window.supabase.from('families').select('*').eq('id', familyId).maybeSingle();
                 if (error) throw error;
                 if (!data) {
                     alert('Không tìm thấy gia phả.');
@@ -286,7 +204,7 @@ let supabaseClient = null;
                 renderTree();
 
                 // Owner check: if signed in, compare owner_id to session user
-                const session = await supabaseClient.auth.getSession();
+                const session = await window.supabase.auth.getSession();
                 const currentUserId = session && session.data && session.data.session && session.data.session.user ? session.data.session.user.id : null;
                 if (!currentUserId || data.owner_id !== currentUserId) {
                     // Not owner — disable edit controls
@@ -303,31 +221,7 @@ let supabaseClient = null;
             }
         }
 
-        async function signInWithGoogle() {
-            if (!supabaseClient) await initSupabase();
-            try {
-                // Use current URL without hash so OAuth returns to this page reliably
-                const redirectTo = window.location.href.split('#')[0];
-                await supabaseClient.auth.signInWithOAuth({ 
-                    provider: 'google', 
-                    options: { redirectTo }
-                });
-            } catch (err) {
-                console.error('Sign in failed', err);
-                alert('Đăng nhập thất bại: ' + (err.message || err));
-            }
-        }
-
-        async function signOut() {
-            if (!supabaseClient) await initSupabase();
-            try {
-                await supabaseClient.auth.signOut();
-                updateAuthUI(null);
-            } catch (err) {
-                console.error('Sign out failed', err);
-                alert('Đăng xuất thất bại: ' + (err.message || err));
-            }
-        }
+        // Sign-in/out provided by auth.js as window.signInWithGoogle / window.signOut
 
         function toggleSidebar() {
             document.body.classList.toggle('sidebar-collapsed');
