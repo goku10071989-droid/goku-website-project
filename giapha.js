@@ -609,7 +609,7 @@ let familyData = null;
             document.getElementById('form-container').style.display = 'none';
         }
 
-        function handleFormSubmit(e) {
+        async function handleFormSubmit(e) {
             e.preventDefault();
             
             const type = document.getElementById('form-type').value;
@@ -646,11 +646,44 @@ let familyData = null;
                     alert('Vui lòng nhập Tên Gia Phả.');
                     return;
                 }
+
+                // Build local family object
                 familyData = {
                     id: generateId(), treeName: familyName, name: name, gender: gender, birthYear: birth, deathYear: death,
                     birthOrder: 1, spouses: [], children: []
                 };
                 selectedNodeId = familyData.id;
+
+                // If Supabase available and user signed in, save to families table and redirect to editor with family_id
+                try {
+                    if (window.supabase) {
+                        const { data: { session } } = await window.supabase.auth.getSession();
+                        if (session && session.user) {
+                            const ownerId = session.user.id;
+                            const payload = { name: familyName, owner_id: ownerId, content: familyData };
+                            const { data: inserted, error: insertErr } = await window.supabase
+                                .from('families')
+                                .insert([payload])
+                                .select('id')
+                                .single();
+                            if (insertErr) {
+                                console.error('Insert family failed', insertErr);
+                                alert('Lưu cây gia phả thất bại: ' + insertErr.message);
+                            } else if (inserted && inserted.id) {
+                                // Redirect to editor for the new family
+                                const base = location.pathname.replace(/\/[^\/]*$/, '');
+                                const sep = base.endsWith('/') ? '' : '/';
+                                window.location.href = base + sep + 'giapha.html?family_id=' + encodeURIComponent(inserted.id);
+                                return;
+                            }
+                        } else {
+                            alert('Vui lòng đăng nhập để lưu lên máy chủ.');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed saving family to Supabase', err);
+                    alert('Lưu cây gia phả thất bại.');
+                }
             } else if (type === 'spouse') {
                 const res = findNodeById(familyData, selectedNodeId);
                 const target = res.type === 'member' ? res.node : res.mainMember;
