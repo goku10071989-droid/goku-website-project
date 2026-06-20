@@ -13,26 +13,6 @@ let familyData = null;
         let prePrintState = null;
 
         function init() {
-            // If the URL contains a family id, try to load that family from Supabase.
-            // Prefer query parameter: giapha.html?family_id={id}, fallback to path segment giapha.html/{id}
-            try {
-                const params = new URLSearchParams(location.search);
-                const familyIdFromQuery = params.get('family_id');
-                let familyId = familyIdFromQuery;
-                if (!familyId) {
-                    const match = location.pathname.match(/giapha\.html\/([^\/\?#]+)/i);
-                    if (match && match[1]) familyId = match[1];
-                }
-                if (familyId) {
-                    // Delay until supabase client initialized
-                    (async () => {
-                        if (!window.supabase && window.initAuth) await window.initAuth(updateAuthUI);
-                        await loadFamilyById(familyId);
-                    })();
-                }
-            } catch (err) {
-                console.warn('No family id in URL or failed to parse.', err);
-            }
             const savedData = localStorage.getItem('family_tree_data');
             if (savedData) {
                 familyData = JSON.parse(savedData);
@@ -91,135 +71,11 @@ let familyData = null;
                 userInfoEl.innerText = 'Đăng nhập: ' + email;
                 signInBtn.style.display = 'none';
                 signOutBtn.style.display = 'block';
-                // Load families for this user when on index page
-                if (typeof loadFamilies === 'function') {
-                    loadFamilies(session.user);
-                }
             } else {
                 userInfoEl.style.display = 'none';
                 userInfoEl.innerText = '';
                 signInBtn.style.display = 'block';
                 signOutBtn.style.display = 'none';
-                // Clear families list when signed out
-                const panel = document.getElementById('families-list-panel');
-                if (panel) panel.style.display = 'none';
-            }
-        }
-
-        // Load list of families owned by the user and render in sidebar (index.html)
-        async function loadFamilies(user) {
-            if (!user || !window.supabase) return;
-            const panel = document.getElementById('families-list-panel');
-            const listEl = document.getElementById('families-list');
-            const createBtn = document.getElementById('create-family-btn');
-            if (!panel || !listEl || !createBtn) return;
-            panel.style.display = 'block';
-            listEl.innerHTML = '<div style="color:#777;">Đang tải...</div>';
-
-            try {
-                const { data, error } = await window.supabase
-                    .from('families')
-                    .select('id,name,created_at')
-                    .eq('owner_id', user.id)
-                    .order('created_at', { ascending: false });
-                if (error) throw error;
-
-                if (!data || data.length === 0) {
-                    listEl.innerHTML = '<div style="color:#777;">Bạn chưa có cây gia phả nào.</div>';
-                    createBtn.style.display = 'block';
-                } else {
-                    createBtn.style.display = 'block';
-                    listEl.innerHTML = data.map(f => {
-                        const when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
-                        return `<div class="family-item" style="padding:6px 4px; border-bottom:1px solid #f0f0f0; cursor:pointer;" onclick="openFamily('${f.id}')">
-                            <div style="font-weight:600;">${escapeHtml(f.name)}</div>
-                            <div style="font-size:12px; color:#666;">Tạo: ${when}</div>
-                        </div>`;
-                    }).join('');
-                }
-            } catch (err) {
-                console.error('Failed to load families', err);
-                listEl.innerHTML = '<div style="color:#c00;">Lỗi khi tải danh sách.</div>';
-            }
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>"']/g, function(m) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[m]; });
-        }
-
-        // Open a family in the editor page
-        function openFamily(familyId) {
-            if (!familyId) return;
-            // Navigate to giapha.html?family_id={familyId}
-            const base = location.pathname.replace(/\/[^\/]*$/, '');
-            const sep = base.endsWith('/') ? '' : '/';
-            window.location.href = base + sep + 'giapha.html?family_id=' + encodeURIComponent(familyId);
-        }
-
-        // Save family row to Supabase and redirect to giapha editor
-        async function saveFamilyToSupabase(treeObj, familyName) {
-            if (!window.supabase && window.initAuth) await window.initAuth(updateAuthUI);
-            try {
-                const session = await window.supabase.auth.getSession();
-                const ownerId = session && session.data && session.data.session && session.data.session.user ? session.data.session.user.id : null;
-                const { data, error } = await window.supabase.from('families').insert([{ owner_id: ownerId, name: familyName, content: treeObj }]).select();
-                if (error) throw error;
-                const inserted = Array.isArray(data) ? data[0] : data;
-                if (inserted && inserted.id) {
-                    // Redirect to editor (use query param)
-                    const base = location.pathname.replace(/\/[^\/]*$/, '');
-                    const sep = base.endsWith('/') ? '' : '/';
-                    window.location.href = base + sep + 'giapha.html?family_id=' + encodeURIComponent(inserted.id);
-                } else {
-                    alert('Lưu gia phả thất bại: Không nhận được id từ server.');
-                }
-            } catch (err) {
-                console.error('Failed to save family', err);
-                alert('Lưu gia phả thất bại: ' + (err.message || err));
-            }
-        }
-
-        // Load a family by id (used on giapha.html/{id})
-        async function loadFamilyById(familyId) {
-            if (!familyId) return;
-            if (!window.supabase && window.initAuth) await window.initAuth(updateAuthUI);
-            try {
-                const { data, error } = await window.supabase.from('families').select('*').eq('id', familyId).maybeSingle();
-                if (error) throw error;
-                if (!data) {
-                    alert('Không tìm thấy gia phả.');
-                    return;
-                }
-                // data.content expected to be the JSON tree
-                familyData = data.content || null;
-                if (familyData && !familyData.id) {
-                    // Ensure root has id
-                    familyData.id = generateId();
-                }
-                // Use name from table as treeName
-                if (data.name) {
-                    if (!familyData) familyData = { id: generateId(), treeName: data.name, name: data.name, spouses: [], children: [] };
-                    familyData.treeName = data.name;
-                }
-                selectedNodeId = familyData ? familyData.id : null;
-                renderTree();
-
-                // Owner check: if signed in, compare owner_id to session user
-                const session = await window.supabase.auth.getSession();
-                const currentUserId = session && session.data && session.data.session && session.data.session.user ? session.data.session.user.id : null;
-                if (!currentUserId || data.owner_id !== currentUserId) {
-                    // Not owner — disable edit controls
-                    const form = document.getElementById('form-container');
-                    if (form) form.style.display = 'none';
-                    const memberActions = document.getElementById('member-actions');
-                    if (memberActions) memberActions.style.display = 'none';
-                    document.getElementById('root-actions').style.display = 'none';
-                    alert('Bạn đang xem gia phả ở chế độ chỉ đọc (không phải chủ sở hữu).');
-                }
-            } catch (err) {
-                console.error('Failed to load family by id', err);
-                alert('Lỗi khi tải gia phả: ' + (err.message || err));
             }
         }
 
@@ -638,7 +494,7 @@ let familyData = null;
             document.getElementById('form-container').style.display = 'none';
         }
 
-        async function handleFormSubmit(e) {
+        function handleFormSubmit(e) {
             e.preventDefault();
             
             const type = document.getElementById('form-type').value;
@@ -675,20 +531,11 @@ let familyData = null;
                     alert('Vui lòng nhập Tên Gia Phả.');
                     return;
                 }
-                // Build initial tree object
-                const initialTree = {
+                familyData = {
                     id: generateId(), treeName: familyName, name: name, gender: gender, birthYear: birth, deathYear: death,
                     birthOrder: 1, spouses: [], children: []
                 };
-                const isIndexPage = location.pathname.endsWith('index.html') || location.pathname.endsWith('/') || location.pathname.endsWith('\\');
-                if (isIndexPage) {
-                    // Save to Supabase and redirect to editor
-                    await saveFamilyToSupabase(initialTree, familyName);
-                    return; // saveFamilyToSupabase will redirect on success
-                } else {
-                    familyData = initialTree;
-                    selectedNodeId = familyData.id;
-                }
+                selectedNodeId = familyData.id;
             } else if (type === 'spouse') {
                 const res = findNodeById(familyData, selectedNodeId);
                 const target = res.type === 'member' ? res.node : res.mainMember;
