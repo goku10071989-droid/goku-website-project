@@ -13,7 +13,6 @@ let familyData = null;
         let prePrintState = null;
 
         async function init() {
-            let loadedFromQuery = false;
             // If URL contains family_id, load that family from Supabase and render
             try {
                 const params = new URLSearchParams(location.search);
@@ -21,19 +20,18 @@ let familyData = null;
                 if (familyIdFromQuery) {
                     if (window.initAuth) await window.initAuth(updateAuthUI);
                     await loadFamilyById(familyIdFromQuery);
-                    loadedFromQuery = true;
+                    return;
                 }
             } catch (err) {
                 console.warn('Failed to parse family_id from URL', err);
             }
 
-            if (!loadedFromQuery) {
-                const savedData = localStorage.getItem('family_tree_data');
-                if (savedData) {
-                    familyData = JSON.parse(savedData);
-                    renderTree();
-                    selectMember(familyData.id);
-                } else {
+            const savedData = localStorage.getItem('family_tree_data');
+            if (savedData) {
+                familyData = JSON.parse(savedData);
+                renderTree();
+                selectMember(familyData.id);
+            } else {
                 // Try to auto-load cay_gia_pha.json located in the same folder as this HTML file.
                 // If the fetch fails (CORS / file:// restrictions), fall back to showing the root actions.
                 fetch('cay_gia_pha.json')
