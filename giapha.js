@@ -18,16 +18,22 @@ let supabaseClient = null;
         let prePrintState = null;
 
         function init() {
-            // If the URL contains giapha.html/{familyId}, try to load that family from Supabase
+            // If the URL contains a family id, try to load that family from Supabase.
+            // Prefer query parameter: giapha.html?family_id={id}, fallback to path segment giapha.html/{id}
             try {
-                const match = location.pathname.match(/giapha\.html\/([^\/\?#]+)/i);
-                if (match && match[1]) {
+                const params = new URLSearchParams(location.search);
+                const familyIdFromQuery = params.get('family_id');
+                let familyId = familyIdFromQuery;
+                if (!familyId) {
+                    const match = location.pathname.match(/giapha\.html\/([^\/\?#]+)/i);
+                    if (match && match[1]) familyId = match[1];
+                }
+                if (familyId) {
                     // Delay until supabase client initialized
                     (async () => {
                         if (!supabaseClient) await initSupabase();
-                        await loadFamilyById(match[1]);
+                        await loadFamilyById(familyId);
                     })();
-                    // Continue with rest of init for UI setup
                 }
             } catch (err) {
                 console.warn('No family id in URL or failed to parse.', err);
@@ -183,9 +189,10 @@ let supabaseClient = null;
         // Open a family in the editor page
         function openFamily(familyId) {
             if (!familyId) return;
-            // Navigate to giapha.html/{family_id}
+            // Navigate to giapha.html?family_id={familyId}
             const base = location.pathname.replace(/\/[^\/]*$/, '');
-            window.location.href = base + '/giapha.html/' + familyId;
+            const sep = base.endsWith('/') ? '' : '/';
+            window.location.href = base + sep + 'giapha.html?family_id=' + encodeURIComponent(familyId);
         }
 
         // Save family row to Supabase and redirect to giapha editor
