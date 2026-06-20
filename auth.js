@@ -6,18 +6,24 @@
     let authHandledFromUrl = false;
 
     async function handleAuthFromUrlOnce(onAuthChange) {
+        console.log('[auth] handleAuthFromUrlOnce start', { locationHash: location.hash, locationSearch: location.search, authHandledFromUrl });
         if (authHandledFromUrl) return;
         const hasAuthInSearch = location.search.includes('access_token') || location.search.includes('code');
         const hasAuthInHash = location.hash && (location.hash.includes('access_token') || location.hash.includes('code') || location.hash.includes('type='));
-        if (!(hasAuthInSearch || hasAuthInHash)) return;
+        if (!(hasAuthInSearch || hasAuthInHash)) {
+            console.log('[auth] no auth tokens in URL');
+            return;
+        }
         try {
+            console.log('[auth] calling getSessionFromUrl');
             await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
             const { data: { session } } = await supabaseClient.auth.getSession();
+            console.log('[auth] session from URL', session);
             authHandledFromUrl = true;
             if (onAuthChange) onAuthChange(session);
             try { history.replaceState({}, document.title, location.pathname + location.search); } catch(e) {}
         } catch (err) {
-            console.warn('No session from URL', err);
+            console.warn('[auth] No session from URL', err);
         }
     }
 
@@ -44,8 +50,11 @@
             handleAuthFromUrlOnce(onAuthChange);
 
             // Listen for hashchange and popstate to catch tokens that appear slightly later
-            window.addEventListener('hashchange', () => handleAuthFromUrlOnce(onAuthChange).catch(()=>{}));
-            window.addEventListener('popstate', () => handleAuthFromUrlOnce(onAuthChange).catch(()=>{}));
+            window.addEventListener('hashchange', (e) => { console.log('[auth] hashchange event', { hash: location.hash }); handleAuthFromUrlOnce(onAuthChange).catch(()=>{}); });
+            window.addEventListener('popstate', (e) => { console.log('[auth] popstate event', { href: location.href }); handleAuthFromUrlOnce(onAuthChange).catch(()=>{}); });
+
+            // Expose a manual debug trigger
+            window.debugAuthCheck = function() { console.log('[auth] debugAuthCheck invoked'); return handleAuthFromUrlOnce(onAuthChange); };
 
             // Poll briefly for session as a fallback
             let pollCount = 0;
@@ -78,10 +87,11 @@
     window.signInWithGoogle = async function() {
         if (!supabaseClient) await window.initAuth();
         const redirectTo = window.location.href.split('#')[0];
+        console.log('[auth] signInWithGoogle redirectTo=', redirectTo);
         try {
             await supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
         } catch (err) {
-            console.error('Sign in failed', err);
+            console.error('[auth] Sign in failed', err);
             throw err;
         }
     };

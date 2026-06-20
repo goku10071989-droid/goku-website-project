@@ -83,6 +83,8 @@ let familyData = null;
             const signOutBtn = document.getElementById('sign-out-btn');
             if (!userInfoEl || !signInBtn || !signOutBtn) return;
 
+            console.log('[giapha] updateAuthUI', { session, url: location.href });
+
             if (session && session.user) {
                 const email = session.user.email || (session.user.user_metadata && session.user.user_metadata.email) || '';
                 userInfoEl.style.display = 'block';
