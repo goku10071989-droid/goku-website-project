@@ -18,6 +18,9 @@ let familyData = null;
                 const params = new URLSearchParams(location.search);
                 const familyIdFromQuery = params.get('family_id');
                 if (familyIdFromQuery) {
+                    initPanZoomListeners();
+                    document.body.classList.add('sidebar-collapsed');
+                    updateSidebarToggleButton();
                     if (window.initAuth) await window.initAuth(updateAuthUI);
                     await loadFamilyById(familyIdFromQuery);
                     return;
@@ -31,35 +34,6 @@ let familyData = null;
                 familyData = JSON.parse(savedData);
                 renderTree();
                 selectMember(familyData.id);
-            } else {
-                // Try to auto-load cay_gia_pha.json located in the same folder as this HTML file.
-                // If the fetch fails (CORS / file:// restrictions), fall back to showing the root actions.
-                fetch('cay_gia_pha.json')
-                    .then(resp => {
-                        if (!resp.ok) throw new Error('No local JSON file');
-                        return resp.text();
-                    })
-                    .then(async text => {
-                        try {
-                            const parsed = JSON.parse(text);
-                            if (parsed && parsed.id && parsed.name) {
-                                familyData = parsed;
-                                selectedNodeId = familyData.id;
-                                await saveToStorage();
-                                renderTree();
-                                selectMember(familyData.id);
-                            } else {
-                                document.getElementById('root-actions').style.display = 'block';
-                            }
-                        } catch (err) {
-                            console.warn('Failed to parse cay_gia_pha.json:', err);
-                            document.getElementById('root-actions').style.display = 'block';
-                        }
-                    })
-                    .catch(err => {
-                        console.info('No cay_gia_pha.json auto-loaded:', err);
-                        document.getElementById('root-actions').style.display = 'block';
-                    });
             }
             // Auto-hide left sidebar on initial page load
             document.body.classList.add('sidebar-collapsed');
@@ -71,63 +45,24 @@ let familyData = null;
         // Supabase auth is handled by auth.js; use window.initAuth / window.supabase
 
         function updateAuthUI(session) {
-            const userInfoEl = document.getElementById('user-info');
-            const signInBtn = document.getElementById('sign-in-btn');
-            const signOutBtn = document.getElementById('sign-out-btn');
-            if (!userInfoEl || !signInBtn || !signOutBtn) return;
-
-            console.log('[giapha] updateAuthUI', { session, url: location.href });
-
+            const userSection = document.getElementById('header-user-section');
+            const userEmailEl = document.getElementById('header-user-email');
+            if (!userSection || !userEmailEl) return;
             if (session && session.user) {
                 const email = session.user.email || (session.user.user_metadata && session.user.user_metadata.email) || '';
-                userInfoEl.style.display = 'block';
-                userInfoEl.innerText = 'Đăng nhập: ' + email;
-                signInBtn.style.display = 'none';
-                signOutBtn.style.display = 'block';
+                userSection.style.display = 'flex';
+                userEmailEl.textContent = email;
             } else {
-                userInfoEl.style.display = 'none';
-                userInfoEl.innerText = '';
-                signInBtn.style.display = 'block';
-                signOutBtn.style.display = 'none';
+                userSection.style.display = 'none';
+                userEmailEl.textContent = '';
             }
         }
 
-        // Load list of families owned by the user and render in sidebar (index.html)
-        async function loadFamilies(user) {
-            if (!user || !window.supabase) return;
-            const panel = document.getElementById('families-list-panel');
-            const listEl = document.getElementById('families-list');
-            const createBtn = document.getElementById('create-family-btn');
-            if (!panel || !listEl || !createBtn) return;
-            panel.style.display = 'block';
-            listEl.innerHTML = '<div style="color:#777;">Đang tải...</div>';
-
-            try {
-                const { data, error } = await window.supabase
-                    .from('families')
-                    .select('id,name,created_at')
-                    .eq('owner_id', user.id)
-                    .order('created_at', { ascending: false });
-                if (error) throw error;
-
-                if (!data || data.length === 0) {
-                    listEl.innerHTML = '<div style="color:#777;">Bạn chưa có cây gia phả nào.</div>';
-                    createBtn.style.display = 'block';
-                } else {
-                    createBtn.style.display = 'block';
-                    listEl.innerHTML = data.map(f => {
-                        const when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
-                        return `<div class="family-item" style="padding:6px 4px; border-bottom:1px solid #f0f0f0; cursor:pointer;" onclick="openFamily('${f.id}')">` +
-                            `<div style="font-weight:600;">${escapeHtml(f.name)}</div>` +
-                            `<div style="font-size:12px; color:#666;">Tạo: ${when}</div>` +
-                        `</div>`;
-                    }).join('');
-                }
-            } catch (err) {
-                console.error('Failed to load families', err);
-                listEl.innerHTML = '<div style="color:#c00;">Lỗi khi tải danh sách.</div>';
-            }
+        async function handleSignOut() {
+            if (window.signOut) await window.signOut();
+            window.location.href = 'index.html';
         }
+
 
         // Load a single family by id and render tree
         async function loadFamilyById(familyId) {
@@ -168,17 +103,29 @@ let familyData = null;
                 // Hide root-actions and show tree
                 const rootAct = document.getElementById('root-actions'); if (rootAct) rootAct.style.display = 'none';
                 renderTree();
-                // Update auth UI owner check
+                // Update header title
+                const titleEl = document.getElementById('family-title');
+                if (titleEl) titleEl.textContent = data.name || familyData.treeName || 'Gia Phả';
+                // Check ownership for read-only mode
                 try {
                     const { data: { session } } = await window.supabase.auth.getSession();
-                    if (session && session.user && session.user.id !== data.owner_id) {
-                        // If not owner, disable edit buttons
-                        document.getElementById('form-container')?.querySelectorAll('input,select,button,textarea')?.forEach(el => el.setAttribute('disabled','disabled'));
+                    if (!session || !session.user || session.user.id !== data.owner_id) {
+                        setReadOnly(true);
                     }
-                } catch(e) {}
+                } catch(e) { setReadOnly(true); }
             } catch (err) {
                 console.error('[giapha] failed to load family by id', err);
             }
+        }
+
+        let isReadOnly = false;
+
+        function setReadOnly(flag) {
+            isReadOnly = flag;
+            const badge = document.getElementById('readonly-badge');
+            if (badge) badge.style.display = flag ? 'inline-flex' : 'none';
+            if (flag) document.body.classList.add('readonly-mode');
+            else document.body.classList.remove('readonly-mode');
         }
 
         function escapeHtml(str) {
@@ -562,6 +509,140 @@ let familyData = null;
             }, 120);
         }
 
+        async function exportPDF() {
+            if (!familyData) { alert('Chưa có dữ liệu gia phả để xuất.'); return; }
+            if (typeof domtoimage === 'undefined' || typeof window.jspdf === 'undefined') {
+                alert('Không thể tải thư viện. Vui lòng kiểm tra kết nối internet.');
+                return;
+            }
+
+            const btn = document.getElementById('export-pdf-btn');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xuất...'; }
+
+            const prevState = {
+                scale, panX, panY,
+                sidebarCollapsed: document.body.classList.contains('sidebar-collapsed')
+            };
+
+            try {
+                document.body.classList.remove('sidebar-collapsed');
+                document.body.classList.add('print-mode');
+                updateSidebarToggleButton();
+
+                const root = document.getElementById('tree-root');
+                root.style.transform = 'none';
+                root.style.willChange = 'auto';
+
+                await new Promise(r => setTimeout(r, 200));
+
+                const W = root.offsetWidth  || root.scrollWidth;
+                const H = root.offsetHeight || root.scrollHeight;
+                const PAD_MM = 8;
+
+                const dataUrl = await domtoimage.toPng(root, {
+                    bgcolor: '#ffffff',
+                    width: W,
+                    height: H,
+                    filter: function(node) {
+                        return !(node.classList && node.classList.contains('order'));
+                    }
+                });
+
+                const { jsPDF } = window.jspdf;
+                const pxToMm   = 25.4 / 96;
+                const pageW    = W * pxToMm + PAD_MM * 2;
+                const pageH    = H * pxToMm + PAD_MM * 2;
+
+                const pdf = new jsPDF({
+                    orientation: pageW >= pageH ? 'landscape' : 'portrait',
+                    unit: 'mm',
+                    format: [pageW, pageH],
+                    compress: true,
+                });
+
+                pdf.addImage(dataUrl, 'PNG', PAD_MM, PAD_MM, W * pxToMm, H * pxToMm);
+
+                const filename = (familyData.treeName || 'cay-gia-pha').replace(/\s+/g, '-') + '.pdf';
+                pdf.save(filename);
+
+            } catch (err) {
+                alert('Lỗi khi xuất PDF: ' + (err.message || String(err)));
+                console.error('[giapha] exportPDF', err);
+            } finally {
+                document.body.classList.remove('print-mode');
+                if (prevState.sidebarCollapsed) document.body.classList.add('sidebar-collapsed');
+                scale = prevState.scale;
+                panX  = prevState.panX;
+                panY  = prevState.panY;
+                applyTransform();
+                updateSidebarToggleButton();
+                if (btn) { btn.disabled = false; btn.textContent = '📄 Xuất PDF'; }
+            }
+        }
+
+        async function exportImage() {
+            if (!familyData) {
+                alert('Chưa có dữ liệu gia phả để xuất.');
+                return;
+            }
+            if (typeof domtoimage === 'undefined') {
+                alert('Không thể tải thư viện xuất ảnh. Vui lòng kiểm tra kết nối internet.');
+                return;
+            }
+
+            const btn = document.getElementById('export-img-btn');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xuất...'; }
+
+            const prevState = {
+                scale, panX, panY,
+                sidebarCollapsed: document.body.classList.contains('sidebar-collapsed')
+            };
+
+            try {
+                document.body.classList.remove('sidebar-collapsed');
+                document.body.classList.add('print-mode');
+                updateSidebarToggleButton();
+
+                const root = document.getElementById('tree-root');
+                root.style.transform = 'none';
+                root.style.willChange = 'auto';
+
+                await new Promise(r => setTimeout(r, 180));
+
+                const W = root.offsetWidth  || root.scrollWidth;
+                const H = root.offsetHeight || root.scrollHeight;
+
+                const dataUrl = await domtoimage.toPng(root, {
+                    bgcolor: '#ffffff',
+                    width: W,
+                    height: H,
+                    filter: function(node) {
+                        return !(node.classList && node.classList.contains('order'));
+                    }
+                });
+
+                const filename = (familyData.treeName || 'cay-gia-pha').replace(/\s+/g, '-') + '.png';
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = dataUrl;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            } catch (err) {
+                alert('Lỗi khi xuất ảnh: ' + (err.message || String(err)));
+                console.error('[giapha] exportImage', err);
+            } finally {
+                document.body.classList.remove('print-mode');
+                if (prevState.sidebarCollapsed) document.body.classList.add('sidebar-collapsed');
+                scale = prevState.scale;
+                panX  = prevState.panX;
+                panY  = prevState.panY;
+                applyTransform();
+                updateSidebarToggleButton();
+                if (btn) { btn.disabled = false; btn.textContent = '🖼️ Xuất PNG'; }
+            }
+        }
+
         // CHỨC NĂNG XÓA THÀNH VIÊN
         async function deleteMember() {
             if (!selectedNodeId) return;
@@ -779,9 +860,29 @@ let familyData = null;
             selectMember(selectedNodeId);
         }
 
+        function buildAncestryPath(targetId) {
+            if (!familyData) return null;
+            function search(node, path) {
+                if (!node) return null;
+                const cur = [...path, node.name];
+                if (node.id === targetId) return cur;
+                for (let child of (node.children || [])) {
+                    const found = search(child, cur);
+                    if (found) return found;
+                }
+                return null;
+            }
+            return search(familyData, []);
+        }
+
         function selectMember(id) {
             selectedNodeId = id;
-            
+
+            if (document.body.classList.contains('sidebar-collapsed')) {
+                document.body.classList.remove('sidebar-collapsed');
+                updateSidebarToggleButton();
+            }
+
             document.querySelectorAll('.card').forEach(el => el.classList.remove('card-selected'));
             const element = document.getElementById('card-' + id);
             if (element) element.classList.add('card-selected');
@@ -806,13 +907,41 @@ let familyData = null;
                     }
                 }
 
+                function renderPath(names) {
+                    return names.map((n, i) => {
+                        const esc = escapeHtml(n);
+                        return i === names.length - 1
+                            ? `<span class="ancestry-current">${esc}</span>`
+                            : esc;
+                    }).join(' <span class="ancestry-arrow">→</span> ');
+                }
+
+                let ancestryHtml = '';
+                if (res.type === 'spouse') {
+                    const mainPath = buildAncestryPath(res.mainMember.id);
+                    if (mainPath) {
+                        ancestryHtml = `<div class="ancestry-path">${renderPath([...mainPath, node.name + ' (Bạn đời)'])}</div>`;
+                    }
+                } else {
+                    const path = buildAncestryPath(id);
+                    if (path) {
+                        ancestryHtml = `<div class="ancestry-path">${renderPath(path)}</div>`;
+                    }
+                }
+
                 document.getElementById('selected-info').innerHTML = `
-                    <strong>${node.name}</strong><br>
-                    Giới tính: ${node.gender}<br>
+                    ${ancestryHtml}
+                    <br>Giới tính: ${node.gender}<br>
                     Năm sinh: ${node.birthYear || 'Chưa rõ'}<br>
                     Năm mất: ${node.deathYear}${extraInfo}
                 `;
             }
+        }
+
+        function formatYears(birthYear, deathYear) {
+            const alive = !deathYear || deathYear === 'Đang sống';
+            if (alive) return birthYear ? String(birthYear) : '';
+            return (birthYear || '?') + ' - ' + deathYear;
         }
 
         // Tạo cây đồ họa (Đệ quy cấu trúc)
@@ -823,8 +952,7 @@ let familyData = null;
             let html = `<li>`;
             html += `<div class="member-block" id="block-${node.id}">`;
             
-            let yearsStr = (node.birthYear || '?') + ' - ' + (node.deathYear || 'Đang sống');
-            if(!node.birthYear && node.deathYear === 'Đang sống') yearsStr = 'Chưa rõ năm sinh';
+            let yearsStr = formatYears(node.birthYear, node.deathYear);
 
             let parentSpouseText = '';
             if (node.spouseParentId && parentNode && parentNode.spouses) {
@@ -844,7 +972,6 @@ let familyData = null;
                     <div class="name">${node.name}</div>
                     <div class="years">${yearsStr}</div>
                     ${parentSpouseText}
-                    <div class="order">Con thứ ${node.birthOrder || 1}</div>
                 </div>
             `;
 
@@ -856,8 +983,7 @@ let familyData = null;
                 const firstSpouse = node.spouses[0];
                 const fsGenderClass = firstSpouse.gender === 'Nam' ? 'gender-nam' : 'gender-nu';
                 const fsSelectedClass = selectedNodeId === firstSpouse.id ? 'card-selected' : '';
-                let fsYearsStr = (firstSpouse.birthYear || '?') + ' - ' + (firstSpouse.deathYear || 'Đang sống');
-                if(!firstSpouse.birthYear && firstSpouse.deathYear === 'Đang sống') fsYearsStr = 'Chưa rõ năm sinh';
+                let fsYearsStr = formatYears(firstSpouse.birthYear, firstSpouse.deathYear);
 
                 // Lưu ý dấu "+" nằm ở bên phải của người vợ/chồng đầu tiên này
                 firstSpouseHTML = `
@@ -865,7 +991,6 @@ let familyData = null;
                         <div class="card ${fsGenderClass} ${fsSelectedClass}" id="card-${firstSpouse.id}" onclick="selectMember('${firstSpouse.id}'); event.stopPropagation();">
                             <div class="name">${firstSpouse.name}</div>
                             <div class="years">${fsYearsStr}</div>
-                            <div class="order" style="background:rgba(0,0,0,0.05)">Bạn đời</div>
                         </div>
                         <div class="spouse-sign">+</div>
                     </div>
@@ -878,8 +1003,7 @@ let familyData = null;
                         const spouse = node.spouses[i];
                         const genderClassSpouse = spouse.gender === 'Nam' ? 'gender-nam' : 'gender-nu';
                         const selectedClassSpouse = selectedNodeId === spouse.id ? 'card-selected' : '';
-                        let sYearsStr = (spouse.birthYear || '?') + ' - ' + (spouse.deathYear || 'Đang sống');
-                        if(!spouse.birthYear && spouse.deathYear === 'Đang sống') sYearsStr = 'Chưa rõ năm sinh';
+                        let sYearsStr = formatYears(spouse.birthYear, spouse.deathYear);
 
                         // Dấu "+" nằm ở bên trái của các người vợ/chồng tiếp theo
                         otherSpousesHTML += `
@@ -887,8 +1011,7 @@ let familyData = null;
                             <div class="card ${genderClassSpouse} ${selectedClassSpouse}" id="card-${spouse.id}" onclick="selectMember('${spouse.id}'); event.stopPropagation();">
                                 <div class="name">${spouse.name}</div>
                                 <div class="years">${sYearsStr}</div>
-                                <div class="order" style="background:rgba(0,0,0,0.05)">Bạn đời</div>
-                            </div>
+                                </div>
                         `;
                     }
                     otherSpousesHTML += `</div>`;
@@ -974,6 +1097,90 @@ let familyData = null;
             event.target.value = ''; 
         }
 
+
+        // ── TÍNH NĂNG TÌM KIẾM THÀNH VIÊN ────────────────────────────────
+        function getAllMembers(root) {
+            const members = [];
+            function traverse(node) {
+                if (!node) return;
+                members.push({ id: node.id, name: node.name, gender: node.gender, birthYear: node.birthYear, isSpouse: false });
+                (node.spouses || []).forEach(s => {
+                    members.push({ id: s.id, name: s.name, gender: s.gender, birthYear: s.birthYear, isSpouse: true });
+                });
+                (node.children || []).forEach(c => traverse(c));
+            }
+            traverse(root);
+            return members;
+        }
+
+        function highlightMatch(text, query) {
+            if (!query) return escapeHtml(text);
+            const escaped = escapeHtml(text);
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return escaped.replace(new RegExp('(' + escapedQuery + ')', 'gi'), '<mark>$1</mark>');
+        }
+
+        function handleSearch(query) {
+            const resultsEl = document.getElementById('search-results');
+            if (!resultsEl) return;
+
+            const q = (query || '').trim();
+            if (!q || !familyData) {
+                resultsEl.style.display = 'none';
+                resultsEl.innerHTML = '';
+                return;
+            }
+
+            const all = getAllMembers(familyData);
+            const lower = q.toLowerCase();
+            const matches = all.filter(m => m.name && m.name.toLowerCase().includes(lower));
+
+            if (matches.length === 0) {
+                resultsEl.innerHTML = '<div class="search-no-result">Không tìm thấy thành viên nào</div>';
+            } else {
+                resultsEl.innerHTML = matches.map(m => {
+                    const icon = m.gender === 'Nữ' ? '👩' : '👨';
+                    const meta = m.birthYear ? m.birthYear : '';
+                    return '<div class="search-result-item" onclick="selectSearchResult(\'' + m.id + '\')">' +
+                        '<span class="sri-icon">' + icon + '</span>' +
+                        '<span class="sri-name">' + highlightMatch(m.name, q) + '</span>' +
+                        (meta ? '<span class="sri-meta">' + meta + '</span>' : '') +
+                    '</div>';
+                }).join('');
+            }
+            resultsEl.style.display = 'block';
+        }
+
+        function panToCard(id) {
+            const card      = document.getElementById('card-' + id);
+            const container = document.getElementById('tree-container');
+            if (!card || !container) return;
+            const cr = container.getBoundingClientRect();
+            const cc = card.getBoundingClientRect();
+            panX += (cr.width  / 2) - (cc.left - cr.left + cc.width  / 2);
+            panY += (cr.height / 2) - (cc.top  - cr.top  + cc.height / 2);
+            applyTransform();
+        }
+
+        function selectSearchResult(id) {
+            const searchInput = document.getElementById('search-input');
+            const resultsEl   = document.getElementById('search-results');
+            if (searchInput) searchInput.value = '';
+            if (resultsEl)   { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; }
+
+            selectMember(id);
+            // Đợi transition sidebar hoàn tất (250ms) rồi mới tính vị trí pan
+            setTimeout(() => panToCard(id), 260);
+        }
+
+        // Đóng kết quả tìm kiếm khi click ra ngoài
+        document.addEventListener('click', function (e) {
+            const container = document.getElementById('search-container');
+            if (container && !container.contains(e.target)) {
+                const resultsEl = document.getElementById('search-results');
+                if (resultsEl) resultsEl.style.display = 'none';
+            }
+        });
 
         window.addEventListener('afterprint', restoreAfterPrint);
         window.onload = init;

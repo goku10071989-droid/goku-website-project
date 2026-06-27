@@ -2,128 +2,184 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
-    <link rel="stylesheet" href="giapha.css" type="text/css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- SEO Core -->
+    <title>Gia Phả Việt - Tạo Cây Gia Phả Online, Quản Lý Phả Hệ Dòng Họ</title>
+    <meta name="description" content="Gia Phả Việt – nền tảng tạo cây gia phả online miễn phí. Xây dựng phả hệ dòng họ, lưu giữ lịch sử gia đình nhiều thế hệ và chia sẻ với người thân dễ dàng.">
+    <meta name="keywords" content="gia phả, tạo cây gia phả online, phả hệ, quản lý cây gia phả, cây gia phả dòng họ, phả hệ gia đình, gia phả việt nam">
+    <meta name="author" content="Gia Phả Việt">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://vngiapha.com/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://vngiapha.com/">
+    <meta property="og:title" content="Gia Phả Việt - Tạo Cây Gia Phả Online, Quản Lý Phả Hệ Dòng Họ">
+    <meta property="og:description" content="Nền tảng tạo cây gia phả online miễn phí. Xây dựng phả hệ dòng họ, lưu giữ lịch sử gia đình nhiều thế hệ và chia sẻ với người thân dễ dàng.">
+    <meta property="og:image" content="https://vngiapha.com/og-image.png">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:site_name" content="Gia Phả Việt">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://vngiapha.com/">
+    <meta name="twitter:title" content="Gia Phả Việt - Tạo Cây Gia Phả Online">
+    <meta name="twitter:description" content="Nền tảng tạo cây gia phả online miễn phí. Xây dựng phả hệ dòng họ, lưu giữ lịch sử gia đình nhiều thế hệ.">
+    <meta name="twitter:image" content="https://vngiapha.com/og-image.png">
+
+    <!-- Structured Data: WebSite -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Gia Phả Việt",
+      "url": "https://vngiapha.com/",
+      "description": "Nền tảng tạo cây gia phả online miễn phí, quản lý phả hệ dòng họ Việt Nam",
+      "inLanguage": "vi",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://vngiapha.com/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- Structured Data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Gia Phả Việt",
+      "url": "https://vngiapha.com/",
+      "applicationCategory": "LifestyleApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "VND"
+      },
+      "description": "Ứng dụng tạo và quản lý cây gia phả online miễn phí. Hỗ trợ xây dựng phả hệ nhiều thế hệ, xuất PDF/PNG, chia sẻ với người thân.",
+      "inLanguage": "vi"
+    }
+    </script>
+
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="giapha.css">
     <script src="auth.js" defer></script>
-    <script type="module" src="index-auth.js" defer></script>
-    <script src="giapha.js" defer></script>
-	<title>Quản Lý Cây Gia Phả - Bản Cao Cấp</title>
+    <script src="index-auth.js" defer></script>
 </head>
-<body>
+<body class="page-home">
 
-    <div class="sidebar">
-        <h2>Quản Lý Gia Phả</h2>
-        <div id="total-count" style="font-size:14px; color:#555; margin-top:6px;">Tổng thành viên: 0</div>
-        
-            <div id="auth-section" style="margin-top:10px;">
-                <div id="user-info" style="font-size:13px; color:#333; display:none;"></div>
-                <div style="display:flex; gap:8px; margin-top:6px;">
-                    <button id="sign-in-btn" style="flex:1; background:#2f80ed; color:#fff; border: none; padding:6px 8px;">Sign in with Google</button>
-                    <button id="sign-out-btn" style="flex:1; background:#e74c3c; color:#fff; border: none; padding:6px 8px; display:none;">Sign out</button>
-                </div>
-            </div>
-        
-        <div id="root-actions" style="display: none;">
-            <h3>Khởi Tạo Gia Phả</h3>
-            <p style="font-size: 13px; margin-bottom: 10px; color: #666;">Chưa có thành viên nào. Hãy thêm người gốc (Root) đầu tiên.</p>
-            <button onclick="showAddForm('root')" style="width: 100%;">Thêm Thành Viên Gốc</button>
-        </div>
-
-        <!-- Families list loaded from Supabase -->
-        <div id="families-list-panel" style="margin-top:12px; display:none;">
-            <h3>Gia Phả của bạn</h3>
-            <div id="families-list" style="max-height:220px; overflow:auto; border:1px solid #eee; padding:6px; border-radius:4px;"></div>
-            <div style="margin-top:8px;">
-                <button id="create-family-btn" style="width:100%; display:none;">Thêm Cây Gia Phả</button>
+    <header class="app-header">
+        <a href="index.html" class="brand">
+            <span class="brand-icon">🌳</span>
+            <span class="brand-name">Gia Phả Việt</span>
+        </a>
+        <div class="app-header-right">
+            <button class="btn btn-primary" id="signin-btn" style="display:none;">Đăng nhập với Google</button>
+            <div id="user-menu" style="display:none; align-items:center; gap:10px;">
+                <span id="user-email" style="font-size:13px; color:#555;"></span>
+                <button class="btn btn-outline-danger btn-sm" id="signout-btn">Đăng xuất</button>
             </div>
         </div>
+    </header>
 
-        <div id="member-actions" style="display: none;">
-            <h3>Thành Viên Đang Chọn</h3>
-            <div id="selected-info" class="info-box">Chưa chọn thành viên</div>
-            
-            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
-                <div style="display: flex; gap: 8px;">
-                    <button onclick="showAddForm('spouse')" style="flex: 1;">Thêm Vợ/Chồng</button>
-                    <button onclick="showAddForm('child')" style="flex: 1;">Thêm Con</button>
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn-warning" onclick="showEditForm()" style="flex: 1;">Sửa Thông Tin</button>
-                    <button class="btn-danger" onclick="deleteMember()" style="flex: 1;">Xóa Người Này</button>
-                </div>
+    <main class="app-main">
+
+        <div id="loading-view" class="center-view">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="guest-view" class="hero-section" style="display:none;">
+            <div class="hero-card">
+                <div class="hero-icon">🌳</div>
+                <h1>Tạo Cây Gia Phả Online – Quản Lý Phả Hệ Dòng Họ</h1>
+                <p>Gia Phả Việt giúp bạn xây dựng và lưu giữ gia phả, phả hệ dòng họ nhiều thế hệ một cách trực quan. Chia sẻ cây gia phả với người thân dễ dàng, hoàn toàn miễn phí.</p>
+                <button class="btn btn-primary btn-lg" id="hero-signin-btn">Đăng nhập với Google để bắt đầu</button>
             </div>
         </div>
 
-        <div id="form-container" style="display: none; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #ddd;">
-            <h3 id="form-title">Nhập thông tin</h3>
-            <form id="member-form" onsubmit="handleFormSubmit(event)">
-                <input type="hidden" id="form-type">
-                <div class="form-group" id="family-name-group" style="display: none;">
-                    <label for="input-family-name">Tên Gia Phả (Bắt buộc khi tạo):</label>
-                    <input type="text" id="input-family-name">
-                </div>
-                
-                <div class="form-group">
-                    <label for="input-name">Họ và Tên:</label>
-                    <input type="text" id="input-name" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="input-gender">Giới tính:</label>
-                    <select id="input-gender">
-                        <option value="Nam">Nam</option>
-                        <option value="Nữ">Nữ</option>
-                    </select>
-                </div>
+        <div id="dashboard-view" style="display:none;">
+            <div class="dashboard-header">
+                <h2>Gia Phả của bạn</h2>
+                <button class="btn btn-primary" id="create-family-btn">+ Tạo Cây Gia Phả Mới</button>
+            </div>
+            <div id="families-loading" class="center-view"><div class="spinner"></div></div>
+            <div id="families-grid" class="families-grid" style="display:none;"></div>
+            <div id="families-empty" class="families-empty" style="display:none;">
+                <div class="empty-icon">🌿</div>
+                <h3>Chưa có cây gia phả nào</h3>
+                <p>Hãy tạo cây gia phả đầu tiên của bạn!</p>
+                <button class="btn btn-primary" id="create-family-btn-empty" style="margin-top:8px;">+ Tạo ngay</button>
+            </div>
+        </div>
 
-                <div class="form-group">
-                    <label for="input-birth">Năm sinh (Không bắt buộc):</label>
-                    <input type="number" id="input-birth" min="1000" max="2100">
-                </div>
+    </main>
 
-                <div class="form-group">
-                    <label for="input-death">Năm mất (Để trống nếu còn sống):</label>
-                    <input type="number" id="input-death" min="1000" max="2100">
+    <!-- Edit Family Modal -->
+    <div id="edit-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Đổi Tên Gia Phả</h3>
+                <button class="modal-close" id="edit-modal-close-btn">✕</button>
+            </div>
+            <form id="edit-form">
+                <input type="hidden" id="ef-family-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="ef-family-name">Tên Gia Phả <span class="required">*</span></label>
+                        <input type="text" id="ef-family-name" placeholder="VD: Họ Nguyễn, Gia tộc Trần..." required>
+                    </div>
                 </div>
-
-                <div class="form-group" id="spouse-parent-group" style="display: none;">
-                    <label for="input-spouse-parent">Là con với người vợ/chồng nào:</label>
-                    <select id="input-spouse-parent"></select>
-                </div>
-
-                <div class="form-group" id="order-group" style="display: none;">
-                    <label for="input-order">Thứ tự sinh (Con thứ mấy):</label>
-                    <input type="number" id="input-order" min="1" value="1">
-                </div>
-
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
-                    <button type="submit" class="btn-success" style="flex: 1;">Lưu</button>
-                    <button type="button" onclick="hideForm()" style="flex: 1; background-color: #95a5a6;">Hủy</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="edit-modal-cancel-btn">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
                 </div>
             </form>
         </div>
+    </div>
 
-        <div style="margin-top: auto; border-top: 1px solid #ddd; padding-top: 15px; display: flex; flex-direction: column; gap: 8px;">
-            <button onclick="prepareAndPrintA0()" style="background-color: #16a085;">In A0 (PDF)</button>
-            <div style="display: flex; gap: 8px;">
-                <button onclick="exportJSON()" style="flex: 1; background-color: #9b59b6;">Lưu file JSON</button>
-                <button onclick="triggerImportJSON()" style="flex: 1; background-color: #34495e;">Mở file</button>
+    <!-- Create Family Modal -->
+    <div id="create-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Tạo Cây Gia Phả Mới</h3>
+                <button class="modal-close" id="modal-close-btn">✕</button>
             </div>
-            <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importJSON(event)">
+            <form id="create-form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="cf-family-name">Tên Gia Phả <span class="required">*</span></label>
+                        <input type="text" id="cf-family-name" placeholder="VD: Họ Nguyễn, Gia tộc Trần..." required>
+                    </div>
+                    <hr style="border:none; border-top:1px solid #f0f0f0; margin:16px 0;">
+                    <p style="font-size:13px; color:#888; margin-bottom:14px;">Thành viên gốc (tổ tiên đầu tiên):</p>
+                    <div class="form-group">
+                        <label for="cf-root-name">Họ và Tên <span class="required">*</span></label>
+                        <input type="text" id="cf-root-name" placeholder="Họ và tên người gốc" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cf-root-gender">Giới tính</label>
+                            <select id="cf-root-gender">
+                                <option value="Nam">Nam</option>
+                                <option value="Nữ">Nữ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="cf-root-birth">Năm sinh</label>
+                            <input type="number" id="cf-root-birth" placeholder="VD: 1950" min="1000" max="2100">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="modal-cancel-btn">Hủy</button>
+                    <button type="submit" class="btn btn-success">Tạo Gia Phả</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div class="tree-container" id="tree-container">
-        <button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Ẩn menu trái">☰</button>
-        <div id="tree-root" class="tree"></div>
-        
-        <div class="zoom-controls">
-            <button onclick="zoomIn()" title="Phóng to">+</button>
-            <button onclick="zoomOut()" title="Thu nhỏ">-</button>
-            <button onclick="resetZoom()" title="Về vị trí gốc" style="font-size: 12px;">Reset</button>
-        </div>
-    </div>
-
-        
 </body>
 </html>

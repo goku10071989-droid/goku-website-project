@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#2ecc71"/>
+  <!-- trunk -->
+  <rect x="28" y="44" width="8" height="12" rx="2" fill="#7f5539"/>
+  <!-- canopy layers -->
+  <polygon points="32,6 48,28 16,28" fill="#27ae60"/>
+  <polygon points="32,18 50,38 14,38" fill="#2ecc71"/>
+  <polygon points="32,28 52,48 12,48" fill="#58d68d"/>
+</svg>

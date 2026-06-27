@@ -2,107 +2,152 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- SEO Core -->
+    <title>Quản Lý Cây Gia Phả - Gia Phả Việt | vngiapha.com</title>
+    <meta name="description" content="Công cụ quản lý cây gia phả online – thêm thành viên, xem phả hệ dòng họ theo nhiều thế hệ, xuất gia phả ra PDF hoặc ảnh PNG.">
+    <meta name="robots" content="noindex, follow">
+    <link rel="canonical" href="https://vngiapha.com/giapha.html">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://vngiapha.com/giapha.html">
+    <meta property="og:title" content="Quản Lý Cây Gia Phả - Gia Phả Việt">
+    <meta property="og:description" content="Công cụ quản lý cây gia phả online – thêm thành viên, xem phả hệ dòng họ theo nhiều thế hệ, xuất gia phả ra PDF hoặc ảnh PNG.">
+    <meta property="og:site_name" content="Gia Phả Việt">
+    <meta property="og:locale" content="vi_VN">
+
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="giapha.css" type="text/css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="auth.js" defer></script>
     <script src="giapha.js" defer></script>
-	<title>Quản Lý Cây Gia Phả - Bản Cao Cấp</title>
 </head>
-<body>
+<body class="page-giapha">
 
-    <div class="sidebar">
-        <h2>Quản Lý Gia Phả</h2>
-        <div id="total-count" style="font-size:14px; color:#555; margin-top:6px;">Tổng thành viên: 0</div>
-        
-        <div id="root-actions" style="display: none;">
-            <h3>Khởi Tạo Gia Phả</h3>
-            <p style="font-size: 13px; margin-bottom: 10px; color: #666;">Chưa có thành viên nào. Hãy thêm người gốc (Root) đầu tiên.</p>
-            <button onclick="showAddForm('root')" style="width: 100%;">Thêm Thành Viên Gốc</button>
+    <header class="app-header">
+        <div class="app-header-left">
+            <a href="index.html" class="btn-back">← Trang Chủ</a>
+            <span id="family-title" class="header-title">Gia Phả</span>
+            <span id="readonly-badge" class="badge-readonly" style="display:none;">Chỉ xem</span>
         </div>
+        <div class="app-header-right">
+            <div id="header-user-section" style="display:none; align-items:center; gap:8px;">
+                <span id="header-user-email" style="font-size:13px; color:#555;"></span>
+                <button class="btn btn-outline-danger btn-sm" onclick="handleSignOut()">Đăng xuất</button>
+            </div>
+        </div>
+    </header>
 
-        <div id="member-actions" style="display: none;">
-            <h3>Thành Viên Đang Chọn</h3>
-            <div id="selected-info" class="info-box">Chưa chọn thành viên</div>
-            
-            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+    <div class="giapha-body">
+
+        <div class="sidebar">
+            <h2>Quản Lý Gia Phả</h2>
+            <div id="total-count" style="font-size:14px; color:#555; margin-top:6px;">Tổng thành viên: 0</div>
+
+            <div id="search-container" style="position:relative;">
+                <input type="text" id="search-input" placeholder="🔍 Tìm kiếm thành viên..." oninput="handleSearch(this.value)" autocomplete="off" style="width:100%;">
+                <div id="search-results" style="display:none;"></div>
+            </div>
+
+            <div id="root-actions" style="display: none;">
+                <h3>Khởi Tạo Gia Phả</h3>
+                <p style="font-size: 13px; margin-bottom: 10px; color: #666;">Chưa có thành viên nào. Hãy thêm người gốc đầu tiên.</p>
+                <button onclick="showAddForm('root')" style="width: 100%;">Thêm Thành Viên Gốc</button>
+            </div>
+
+            <div id="member-actions" style="display: none;">
+                <h3>Thành Viên Đang Chọn</h3>
+                <div id="selected-info" class="info-box">Chưa chọn thành viên</div>
+                <div class="view-only-notice">Chỉ xem – bạn không phải chủ sở hữu</div>
+                <div class="edit-actions" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="showAddForm('spouse')" style="flex: 1;">Thêm Vợ/Chồng</button>
+                        <button onclick="showAddForm('child')" style="flex: 1;">Thêm Con</button>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-warning" onclick="showEditForm()" style="flex: 1;">Sửa Thông Tin</button>
+                        <button class="btn-danger" onclick="deleteMember()" style="flex: 1;">Xóa Người Này</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="form-container" style="display: none; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #ddd;">
+                <h3 id="form-title">Nhập thông tin</h3>
+                <form id="member-form" onsubmit="handleFormSubmit(event)">
+                    <input type="hidden" id="form-type">
+                    <div class="form-group" id="family-name-group" style="display: none;">
+                        <label for="input-family-name">Tên Gia Phả:</label>
+                        <input type="text" id="input-family-name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-name">Họ và Tên:</label>
+                        <input type="text" id="input-name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-gender">Giới tính:</label>
+                        <select id="input-gender">
+                            <option value="Nam">Nam</option>
+                            <option value="Nữ">Nữ</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-birth">Năm sinh (Không bắt buộc):</label>
+                        <input type="number" id="input-birth" min="1000" max="2100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="input-death">Năm mất (Để trống nếu còn sống):</label>
+                        <input type="number" id="input-death" min="1000" max="2100">
+                    </div>
+
+                    <div class="form-group" id="spouse-parent-group" style="display: none;">
+                        <label for="input-spouse-parent">Là con với người vợ/chồng nào:</label>
+                        <select id="input-spouse-parent"></select>
+                    </div>
+
+                    <div class="form-group" id="order-group" style="display: none;">
+                        <label for="input-order">Thứ tự sinh (Con thứ mấy):</label>
+                        <input type="number" id="input-order" min="1" value="1">
+                    </div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button type="submit" class="btn-success" style="flex: 1;">Lưu</button>
+                        <button type="button" onclick="hideForm()" style="flex: 1; background-color: #95a5a6;">Hủy</button>
+                    </div>
+                </form>
+            </div>
+
+            <div style="margin-top: auto; border-top: 1px solid #ddd; padding-top: 15px; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; gap: 8px;">
-                    <button onclick="showAddForm('spouse')" style="flex: 1;">Thêm Vợ/Chồng</button>
-                    <button onclick="showAddForm('child')" style="flex: 1;">Thêm Con</button>
+                    <button id="export-pdf-btn" onclick="exportPDF()" style="flex: 1; background-color: #16a085;">📄 Xuất PDF</button>
+                    <button id="export-img-btn" onclick="exportImage()" style="flex: 1; background-color: #8e44ad;">🖼️ Xuất PNG</button>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn-warning" onclick="showEditForm()" style="flex: 1;">Sửa Thông Tin</button>
-                    <button class="btn-danger" onclick="deleteMember()" style="flex: 1;">Xóa Người Này</button>
+                    <button onclick="exportJSON()" style="flex: 1; background-color: #9b59b6;">Lưu file JSON</button>
+                    <button onclick="triggerImportJSON()" style="flex: 1; background-color: #34495e;">Mở file</button>
                 </div>
+                <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importJSON(event)">
             </div>
         </div>
 
-        <div id="form-container" style="display: none; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #ddd;">
-            <h3 id="form-title">Nhập thông tin</h3>
-            <form id="member-form" onsubmit="handleFormSubmit(event)">
-                <input type="hidden" id="form-type">
-                
-                <div class="form-group">
-                    <label for="input-name">Họ và Tên:</label>
-                    <input type="text" id="input-name" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="input-gender">Giới tính:</label>
-                    <select id="input-gender">
-                        <option value="Nam">Nam</option>
-                        <option value="Nữ">Nữ</option>
-                    </select>
-                </div>
+        <div class="tree-container" id="tree-container">
+            <button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Ẩn menu trái">☰</button>
+            <div id="tree-root" class="tree"></div>
 
-                <div class="form-group">
-                    <label for="input-birth">Năm sinh (Không bắt buộc):</label>
-                    <input type="number" id="input-birth" min="1000" max="2100">
-                </div>
-
-                <div class="form-group">
-                    <label for="input-death">Năm mất (Để trống nếu còn sống):</label>
-                    <input type="number" id="input-death" min="1000" max="2100">
-                </div>
-
-                <div class="form-group" id="spouse-parent-group" style="display: none;">
-                    <label for="input-spouse-parent">Là con với người vợ/chồng nào:</label>
-                    <select id="input-spouse-parent"></select>
-                </div>
-
-                <div class="form-group" id="order-group" style="display: none;">
-                    <label for="input-order">Thứ tự sinh (Con thứ mấy):</label>
-                    <input type="number" id="input-order" min="1" value="1">
-                </div>
-
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
-                    <button type="submit" class="btn-success" style="flex: 1;">Lưu</button>
-                    <button type="button" onclick="hideForm()" style="flex: 1; background-color: #95a5a6;">Hủy</button>
-                </div>
-            </form>
-        </div>
-
-        <div style="margin-top: auto; border-top: 1px solid #ddd; padding-top: 15px; display: flex; flex-direction: column; gap: 8px;">
-            <button onclick="prepareAndPrintA0()" style="background-color: #16a085;">In A0 (PDF)</button>
-            <div style="display: flex; gap: 8px;">
-                <button onclick="exportJSON()" style="flex: 1; background-color: #9b59b6;">Lưu file JSON</button>
-                <button onclick="triggerImportJSON()" style="flex: 1; background-color: #34495e;">Mở file</button>
+            <div class="zoom-controls">
+                <button onclick="zoomIn()" title="Phóng to">+</button>
+                <button onclick="zoomOut()" title="Thu nhỏ">-</button>
+                <button onclick="resetZoom()" title="Về vị trí gốc" style="font-size: 12px;">Reset</button>
             </div>
-            <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importJSON(event)">
-            <button class="btn-danger" onclick="clearTree()">Xóa Toàn Bộ Cây</button>
         </div>
+
     </div>
 
-    <div class="tree-container" id="tree-container">
-        <button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Ẩn menu trái">☰</button>
-        <div id="tree-root" class="tree"></div>
-        
-        <div class="zoom-controls">
-            <button onclick="zoomIn()" title="Phóng to">+</button>
-            <button onclick="zoomOut()" title="Thu nhỏ">-</button>
-            <button onclick="resetZoom()" title="Về vị trí gốc" style="font-size: 12px;">Reset</button>
-        </div>
-    </div>
-
-        
 </body>
 </html>
